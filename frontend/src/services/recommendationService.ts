@@ -2,6 +2,7 @@ import { CIERecommendationDetail } from '../types';
 import { INITIAL_MOCK_RECOMMENDATIONS } from '../mock/recommendations';
 import { issueService } from './issueService';
 import { cieService } from './cieService';
+import { API_ENDPOINTS } from '../config/api';
 
 const RECOMMENDATIONS_STORAGE_KEY = 'kopargov_unified_recommendations_v2';
 
@@ -64,12 +65,28 @@ export const recommendationService = {
     officerName?: string
   ): Promise<boolean> {
     const cleanId = issueId.toUpperCase();
+    const officer = officerName || 'Shri. Rajesh Kulkarni (CMO)';
+
+    // Best-effort live API call to FastAPI workflow backend
+    try {
+      await fetch(API_ENDPOINTS.WORKFLOW_APPROVE(cleanId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          officer_id: officer,
+          notes: 'Approved via Officer Decision Portal',
+        }),
+      });
+    } catch (err) {
+      console.warn(`FastAPI workflow approve endpoint offline for ${cleanId}, updating locally:`, err);
+    }
+
     const data = loadRecommendations();
     const rec = data[cleanId];
 
     if (rec) {
       rec.status = 'APPROVED';
-      rec.approved_by = officerName || 'Shri. Rajesh Kulkarni (CMO)';
+      rec.approved_by = officer;
       rec.approved_at = new Date().toISOString();
       saveRecommendations(data);
     }
@@ -89,8 +106,23 @@ export const recommendationService = {
     return this.requestReview(issueId, reason);
   },
 
-  async rejectRecommendation(issueId: string, _reason: string): Promise<boolean> {
+  async rejectRecommendation(issueId: string, reason: string): Promise<boolean> {
     const cleanId = issueId.toUpperCase();
+
+    // Best-effort live API call to FastAPI workflow backend
+    try {
+      await fetch(API_ENDPOINTS.WORKFLOW_REJECT(cleanId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          officer_id: 'Municipal Officer',
+          reason: reason || 'Returned to validation queue',
+        }),
+      });
+    } catch (err) {
+      console.warn(`FastAPI workflow reject endpoint offline for ${cleanId}, updating locally:`, err);
+    }
+
     await issueService.updateIssueStatus(cleanId, 'VALIDATED');
     return true;
   },
@@ -100,3 +132,4 @@ export const recommendationService = {
     window.dispatchEvent(new Event('kopargov_state_updated'));
   },
 };
+

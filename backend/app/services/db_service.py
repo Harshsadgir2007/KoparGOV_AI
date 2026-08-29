@@ -29,6 +29,13 @@ except ImportError:
     FIREBASE_AVAILABLE = False
 
 
+_GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
+    "issues": {},
+    "cie_results": {},
+    "workflow": {},
+}
+
+
 class DatabaseService:
     """Service managing Firestore data operations with graceful mock fallback."""
 
@@ -40,11 +47,7 @@ class DatabaseService:
             use_mock_if_missing: If True, falls back to in-memory store if credentials are missing.
         """
         self._using_mock = False
-        self._mock_db: Dict[str, Dict[str, Any]] = {
-            "issues": {},
-            "cie_results": {},
-            "workflow": {},
-        }
+        self._mock_db: Dict[str, Dict[str, Any]] = _GLOBAL_MOCK_DB
 
         if db_client is not None:
             self.client = db_client

@@ -1,6 +1,7 @@
 import { MunicipalAssignment, CivicStatus } from '../types';
 import { INITIAL_MOCK_ASSIGNMENTS } from '../mock/assignments';
 import { issueService } from './issueService';
+import { API_ENDPOINTS } from '../config/api';
 
 export interface AssignmentFilters {
   search?: string;
@@ -96,6 +97,21 @@ export const assignmentService = {
     const cleanId = issueId.toUpperCase();
     let asg = list.find(a => a.issue_id.toUpperCase() === cleanId);
 
+    // Best-effort live API call to FastAPI workflow backend
+    try {
+      await fetch(API_ENDPOINTS.WORKFLOW_ASSIGN(cleanId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assigned_team: data.team,
+          officer_id: 'Municipal Dispatch Officer',
+          notes: data.notes || `Dispatched ${data.team} with ${data.workers} workers and ${data.vehicle}`,
+        }),
+      });
+    } catch (err) {
+      console.warn(`FastAPI workflow assign endpoint offline for ${cleanId}, updating locally:`, err);
+    }
+
     if (asg) {
       asg.team = data.team;
       asg.vehicle = data.vehicle;
@@ -146,7 +162,22 @@ export const assignmentService = {
   },
 
   async startWork(issueId: string): Promise<boolean> {
-    return this.updateAssignmentStatus(issueId, 'IN_PROGRESS');
+    const cleanId = issueId.toUpperCase();
+    // Best-effort live API call to FastAPI workflow backend
+    try {
+      await fetch(API_ENDPOINTS.WORKFLOW_START(cleanId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          officer_id: 'Field Team Lead',
+          notes: 'Work commenced on site.',
+        }),
+      });
+    } catch (err) {
+      console.warn(`FastAPI workflow start endpoint offline for ${cleanId}, updating locally:`, err);
+    }
+
+    return this.updateAssignmentStatus(cleanId, 'IN_PROGRESS');
   },
 
   async resolveAssignment(
@@ -158,6 +189,21 @@ export const assignmentService = {
     }
   ): Promise<boolean> {
     const cleanId = issueId.toUpperCase();
+
+    // Best-effort live API call to FastAPI workflow backend
+    try {
+      await fetch(API_ENDPOINTS.WORKFLOW_RESOLVE(cleanId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          officer_id: 'Chief Municipal Officer',
+          resolution_notes: resolution.completion_notes,
+        }),
+      });
+    } catch (err) {
+      console.warn(`FastAPI workflow resolve endpoint offline for ${cleanId}, updating locally:`, err);
+    }
+
     const list = loadAssignments();
     const asg = list.find(
       a => a.assignment_id.toUpperCase() === cleanId || a.issue_id.toUpperCase() === cleanId

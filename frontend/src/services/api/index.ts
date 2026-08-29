@@ -1,7 +1,10 @@
 import { CivicIssue, MunicipalResources, AnalyticsOverview, AssignmentDetails, ResolutionDetails } from '../../types';
 import { INITIAL_ISSUES, INITIAL_RESOURCES, INITIAL_ANALYTICS } from '../../data/mockData';
+import { INITIAL_MOCK_ISSUES } from '../../mock/issues';
+import { API_BASE_URL } from '../../config/api';
+import { cieService } from '../cieService';
 
-const ISSUES_STORAGE_KEY = 'kopargov_issues_v1';
+const ISSUES_STORAGE_KEY = 'kopargov_unified_issues_v2';
 const RESOURCES_STORAGE_KEY = 'kopargov_resources_v1';
 const ANALYTICS_STORAGE_KEY = 'kopargov_analytics_v1';
 
@@ -13,13 +16,15 @@ function getStoredIssues(): CivicIssue[] {
   } catch (e) {
     console.error('Error reading localStorage issues:', e);
   }
-  localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(INITIAL_ISSUES));
-  return INITIAL_ISSUES;
+  const initial = INITIAL_MOCK_ISSUES && INITIAL_MOCK_ISSUES.length ? INITIAL_MOCK_ISSUES : INITIAL_ISSUES;
+  localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(initial));
+  return initial;
 }
 
 function saveStoredIssues(issues: CivicIssue[]) {
   try {
     localStorage.setItem(ISSUES_STORAGE_KEY, JSON.stringify(issues));
+    window.dispatchEvent(new Event('kopargov_state_updated'));
   } catch (e) {
     console.error('Error saving issues to localStorage:', e);
   }
@@ -39,13 +44,11 @@ function getStoredResources(): MunicipalResources {
 function saveStoredResources(res: MunicipalResources) {
   try {
     localStorage.setItem(RESOURCES_STORAGE_KEY, JSON.stringify(res));
+    window.dispatchEvent(new Event('kopargov_state_updated'));
   } catch (e) {
     console.error('Error saving resources to localStorage:', e);
   }
 }
-
-import { API_BASE_URL } from '../../config/api';
-import { cieService } from '../cieService';
 
 export { cieService };
 
@@ -57,23 +60,6 @@ export const api = {
     status?: string;
     search?: string;
   }): Promise<CivicIssue[]> {
-    if (API_BASE_URL) {
-      try {
-        const queryParams = new URLSearchParams();
-        if (filters?.category && filters.category !== 'ALL') queryParams.set('category', filters.category);
-        if (filters?.ward && filters.ward !== 'ALL') queryParams.set('ward', filters.ward);
-        if (filters?.priority && filters.priority !== 'ALL') queryParams.set('priority', filters.priority);
-        if (filters?.status && filters.status !== 'ALL') queryParams.set('status', filters.status);
-        if (filters?.search) queryParams.set('search', filters.search);
-
-        const res = await fetch(`${API_BASE_URL}/issues?${queryParams.toString()}`);
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Backend API unavailable, using local CIE mock data store:', err);
-      }
-    }
-
-    // Fallback Mock Local Storage Engine
     let issues = getStoredIssues();
 
     if (filters) {
@@ -107,14 +93,6 @@ export const api = {
   },
 
   async getIssueById(id: string): Promise<CivicIssue | undefined> {
-    if (API_BASE_URL) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/issues/${id}`);
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Backend API unavailable, using mock data for issue:', id, err);
-      }
-    }
     const issues = getStoredIssues();
     return issues.find(i => i.id.toLowerCase() === id.toLowerCase());
   },
