@@ -237,6 +237,24 @@ export const IssueDetailPage: React.FC = () => {
                   <span className="text-slate-500 block text-[11px]">Population In Direct Impact</span>
                   <span className="font-bold text-slate-900 text-xs">{issue.population_affected.toLocaleString('en-IN')} Citizens</span>
                 </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1 sm:col-span-2">
+                  <span className="text-slate-500 block text-[11px]">Citizen Reporting Identity & Visibility</span>
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="font-bold text-slate-900 text-xs">
+                      {issue.is_anonymous ? 'Anonymous Citizen' : (issue.reporter_display_name || issue.citizen_name || 'Anonymous Citizen')}
+                    </span>
+                    {issue.is_anonymous ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">
+                        🔒 Anonymous Mode
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-bold">
+                        👤 Public Report
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

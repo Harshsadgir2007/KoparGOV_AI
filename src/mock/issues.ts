@@ -16,8 +16,11 @@ export const INITIAL_MOCK_ISSUES: CivicIssue[] = [
     priority_score: 87,
     priority_level: 'CRITICAL',
     population_affected: 1200,
-    citizen_name: 'Anand Patil',
+    citizen_name: 'Rahul Patil',
     citizen_phone: '+91 98220 44112',
+    identity_mode: 'ANONYMOUS',
+    is_anonymous: true,
+    reporter_display_name: 'Anonymous Citizen',
     before_photos: [
       'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=600&q=80',
     ],

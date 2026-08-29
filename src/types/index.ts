@@ -129,6 +129,32 @@ export interface MunicipalAssignment {
   resolution?: ResolutionDetails;
 }
 
+export type CitizenIdentityMode = 'PUBLIC' | 'ANONYMOUS';
+
+export interface LeaderboardEntry {
+  rank: number;
+  display_name: string;
+  identity_type: CitizenIdentityMode;
+  reports: number;
+  resolved: number;
+  score: number;
+  is_current_user?: boolean;
+}
+
+export interface CitizenProfile {
+  id: string;
+  real_name: string;
+  identity_mode: CitizenIdentityMode;
+  leaderboard_enabled: boolean;
+  alias?: string;
+  phone: string;
+  address: string;
+  ward: string;
+  reports_count: number;
+  resolved_count: number;
+  contribution_score: number;
+}
+
 export interface CivicIssue {
   id: string;
   title: string;
@@ -146,6 +172,9 @@ export interface CivicIssue {
   population_affected: number;
   citizen_name?: string;
   citizen_phone?: string;
+  identity_mode?: CitizenIdentityMode;
+  is_anonymous?: boolean;
+  reporter_display_name?: string;
   before_photos: string[];
   after_photos?: string[];
   factors: CIEFactors;

@@ -23,6 +23,8 @@ import { CitizenLandingPage } from './pages/citizen/CitizenLandingPage';
 import { CitizenReportPage } from './pages/citizen/CitizenReportPage';
 import { CitizenIssuesPage } from './pages/citizen/CitizenIssuesPage';
 import { CitizenTrackingPage } from './pages/citizen/CitizenTrackingPage';
+import { CitizenLeaderboardPage } from './pages/citizen/CitizenLeaderboardPage';
+import { CitizenProfilePage } from './pages/citizen/CitizenProfilePage';
 
 // Auth Page
 import { LoginPage } from './pages/auth/LoginPage';
@@ -56,6 +58,8 @@ export function App() {
                 <Route path="/citizen/report" element={<CitizenReportPage />} />
                 <Route path="/citizen/issues" element={<CitizenIssuesPage />} />
                 <Route path="/citizen/issues/:id" element={<CitizenTrackingPage />} />
+                <Route path="/citizen/leaderboard" element={<CitizenLeaderboardPage />} />
+                <Route path="/citizen/profile" element={<CitizenProfilePage />} />
               </Route>
 
               {/* Authentication */}

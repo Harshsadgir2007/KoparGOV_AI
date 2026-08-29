@@ -13,6 +13,8 @@ import {
   X,
   User,
   RotateCcw,
+  Trophy,
+  Sliders,
 } from 'lucide-react';
 import { citizenService, CitizenNotification } from '../../services/citizenService';
 import { issueService } from '../../services/issueService';
@@ -118,6 +120,30 @@ export const CitizenLayout: React.FC = () => {
               My Complaints
             </NavLink>
 
+            <NavLink
+              to="/citizen/leaderboard"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
+                  isActive ? 'bg-slate-800 text-amber-300 font-bold' : 'text-slate-300 hover:text-white'
+                }`
+              }
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Leaderboard</span>
+            </NavLink>
+
+            <NavLink
+              to="/citizen/profile"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
+                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white'
+                }`
+              }
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Privacy</span>
+            </NavLink>
+
             {/* Notifications Button */}
             <button
               onClick={() => setNotifOpen(true)}
@@ -187,7 +213,7 @@ export const CitizenLayout: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Navigation Bar (Mobile-first UX) */}
-      <nav className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 px-2 py-1.5 flex items-center justify-around text-[10px] font-bold shadow-lg">
+      <nav className="sm:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-30 px-2 py-1 flex items-center justify-around text-[10px] font-bold shadow-lg">
         <NavLink
           to="/citizen"
           end
@@ -197,7 +223,7 @@ export const CitizenLayout: React.FC = () => {
             }`
           }
         >
-          <Home className="w-4.5 h-4.5" />
+          <Home className="w-4 h-4" />
           <span>Home</span>
         </NavLink>
 
@@ -207,8 +233,8 @@ export const CitizenLayout: React.FC = () => {
             `flex flex-col items-center gap-0.5 p-1 text-sky-700 font-black`
           }
         >
-          <div className="w-8 h-8 -mt-4 rounded-full bg-sky-700 text-white flex items-center justify-center shadow-md">
-            <PlusCircle className="w-5 h-5" />
+          <div className="w-7 h-7 -mt-3 rounded-full bg-sky-700 text-white flex items-center justify-center shadow-md">
+            <PlusCircle className="w-4 h-4" />
           </div>
           <span>Report</span>
         </NavLink>
@@ -221,8 +247,32 @@ export const CitizenLayout: React.FC = () => {
             }`
           }
         >
-          <FileText className="w-4.5 h-4.5" />
+          <FileText className="w-4 h-4" />
           <span>Complaints</span>
+        </NavLink>
+
+        <NavLink
+          to="/citizen/leaderboard"
+          className={({ isActive }) =>
+            `flex flex-col items-center gap-0.5 p-1 ${
+              isActive ? 'text-amber-600 font-black' : 'text-slate-500'
+            }`
+          }
+        >
+          <Trophy className="w-4 h-4" />
+          <span>Ranks</span>
+        </NavLink>
+
+        <NavLink
+          to="/citizen/profile"
+          className={({ isActive }) =>
+            `flex flex-col items-center gap-0.5 p-1 ${
+              isActive ? 'text-sky-700 font-black' : 'text-slate-500'
+            }`
+          }
+        >
+          <Sliders className="w-4 h-4" />
+          <span>Privacy</span>
         </NavLink>
       </nav>
 
@@ -237,7 +287,7 @@ export const CitizenLayout: React.FC = () => {
               </div>
               <button
                 onClick={() => setNotifOpen(false)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-600"
+                className="p-1 rounded-md text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4.5 h-4.5" />
               </button>
@@ -275,7 +325,7 @@ export const CitizenLayout: React.FC = () => {
 
             <button
               onClick={() => setNotifOpen(false)}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs cursor-pointer"
             >
               Close
             </button>

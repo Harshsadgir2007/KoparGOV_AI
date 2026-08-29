@@ -1,5 +1,6 @@
-import { CivicIssue, CivicCategory, CivicStatus } from '../types';
+import { CivicIssue, CivicCategory, CivicStatus, CitizenProfile, LeaderboardEntry, CitizenIdentityMode } from '../types';
 import { issueService } from './issueService';
+import { DEFAULT_CITIZEN_PROFILE, MOCK_LEADERBOARD } from '../mock/citizens';
 
 export interface CitizenIssuePayload {
   category: CivicCategory;
@@ -13,6 +14,9 @@ export interface CitizenIssuePayload {
   photoUrl?: string;
   citizen_name?: string;
   citizen_phone?: string;
+  identity_mode?: CitizenIdentityMode;
+  leaderboard_enabled?: boolean;
+  alias?: string;
 }
 
 export interface CitizenNotification {
@@ -26,6 +30,8 @@ export interface CitizenNotification {
 }
 
 const CITIZEN_NOTIFICATIONS_KEY = 'kopargov_citizen_notifications_v2';
+const CITIZEN_PROFILE_KEY = 'kopargov_citizen_profile_v2';
+const CITIZEN_LEADERBOARD_KEY = 'kopargov_citizen_leaderboard_v2';
 
 const DEFAULT_NOTIFICATIONS: CitizenNotification[] = [
   {
@@ -57,6 +63,46 @@ const DEFAULT_NOTIFICATIONS: CitizenNotification[] = [
   },
 ];
 
+function loadProfile(): CitizenProfile {
+  try {
+    const saved = localStorage.getItem(CITIZEN_PROFILE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Failed to load citizen profile', e);
+  }
+  localStorage.setItem(CITIZEN_PROFILE_KEY, JSON.stringify(DEFAULT_CITIZEN_PROFILE));
+  return DEFAULT_CITIZEN_PROFILE;
+}
+
+function saveProfile(profile: CitizenProfile) {
+  try {
+    localStorage.setItem(CITIZEN_PROFILE_KEY, JSON.stringify(profile));
+    window.dispatchEvent(new Event('kopargov_state_updated'));
+  } catch (e) {
+    console.error('Failed to save citizen profile', e);
+  }
+}
+
+function loadLeaderboard(): LeaderboardEntry[] {
+  try {
+    const saved = localStorage.getItem(CITIZEN_LEADERBOARD_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Failed to load leaderboard', e);
+  }
+  localStorage.setItem(CITIZEN_LEADERBOARD_KEY, JSON.stringify(MOCK_LEADERBOARD));
+  return MOCK_LEADERBOARD;
+}
+
+function saveLeaderboard(list: LeaderboardEntry[]) {
+  try {
+    localStorage.setItem(CITIZEN_LEADERBOARD_KEY, JSON.stringify(list));
+    window.dispatchEvent(new Event('kopargov_state_updated'));
+  } catch (e) {
+    console.error('Failed to save leaderboard', e);
+  }
+}
+
 function loadNotifications(): CitizenNotification[] {
   try {
     const saved = localStorage.getItem(CITIZEN_NOTIFICATIONS_KEY);
@@ -78,6 +124,69 @@ function saveNotifications(list: CitizenNotification[]) {
 }
 
 export const citizenService = {
+  async getProfile(): Promise<CitizenProfile> {
+    return loadProfile();
+  },
+
+  async updateProfile(updates: Partial<CitizenProfile>): Promise<CitizenProfile> {
+    const current = loadProfile();
+    const updated = { ...current, ...updates };
+    saveProfile(updated);
+    return updated;
+  },
+
+  async getLeaderboard(): Promise<{ current_user: CitizenProfile; entries: LeaderboardEntry[] }> {
+    const profile = loadProfile();
+    const baseLeaderboard = loadLeaderboard();
+
+    // Check if current user is participating in leaderboard
+    let entries = [...baseLeaderboard];
+
+    if (profile.leaderboard_enabled) {
+      const displayName = profile.identity_mode === 'PUBLIC' 
+        ? profile.real_name 
+        : (profile.alias || 'CivicChampion');
+      
+      const userEntryIndex = entries.findIndex(e => e.display_name === displayName || e.is_current_user);
+      
+      if (userEntryIndex >= 0) {
+        entries[userEntryIndex] = {
+          ...entries[userEntryIndex],
+          display_name: displayName,
+          identity_type: profile.identity_mode,
+          reports: profile.reports_count,
+          resolved: profile.resolved_count,
+          score: profile.contribution_score,
+          is_current_user: true,
+        };
+      } else {
+        // Insert user according to score
+        entries.push({
+          rank: entries.length + 1,
+          display_name: displayName,
+          identity_type: profile.identity_mode,
+          reports: profile.reports_count,
+          resolved: profile.resolved_count,
+          score: profile.contribution_score,
+          is_current_user: true,
+        });
+      }
+      
+      // Sort and recalculate ranks
+      entries.sort((a, b) => b.score - a.score);
+      entries = entries.map((e, idx) => ({ ...e, rank: idx + 1 }));
+    } else {
+      // User opted out: remove any previous entry of current user
+      entries = entries.filter(e => !e.is_current_user && e.display_name !== profile.real_name && e.display_name !== profile.alias);
+      entries = entries.map((e, idx) => ({ ...e, rank: idx + 1 }));
+    }
+
+    return {
+      current_user: profile,
+      entries,
+    };
+  },
+
   async getMyIssues(filter?: 'ALL' | 'ACTIVE' | 'IN_PROGRESS' | 'RESOLVED'): Promise<CivicIssue[]> {
     let list = await issueService.getIssues();
 
@@ -100,7 +209,27 @@ export const citizenService = {
 
   async submitIssue(payload: CitizenIssuePayload): Promise<CivicIssue> {
     const allIssues = await issueService.getIssues();
+    const profile = loadProfile();
     const newId = `ISS-${1024 + allIssues.length + 1}`;
+
+    const identityMode: CitizenIdentityMode = payload.identity_mode || profile.identity_mode || 'ANONYMOUS';
+    const isAnonymous = identityMode === 'ANONYMOUS';
+    
+    // SOURCE OF TRUTH PRIVACY RULE:
+    // For Public: real name displayed.
+    // For Anonymous: 'Anonymous Citizen' displayed. Real name NEVER exposed publicly.
+    const reporterDisplayName = isAnonymous ? 'Anonymous Citizen' : (payload.citizen_name || profile.real_name);
+
+    // If payload contains updated alias or leaderboard preference, update profile
+    if (payload.alias) {
+      profile.alias = payload.alias;
+    }
+    if (payload.leaderboard_enabled !== undefined) {
+      profile.leaderboard_enabled = payload.leaderboard_enabled;
+    }
+    profile.identity_mode = identityMode;
+    profile.reports_count = (profile.reports_count || 18) + 1;
+    saveProfile(profile);
 
     const newIssue: CivicIssue = {
       id: newId,
@@ -117,8 +246,11 @@ export const citizenService = {
       priority_score: 87,
       priority_level: 'CRITICAL',
       population_affected: 1200,
-      citizen_name: payload.citizen_name || 'Anand Patil',
-      citizen_phone: payload.citizen_phone || '+91 98220 44112',
+      citizen_name: profile.real_name,
+      citizen_phone: profile.phone,
+      identity_mode: identityMode,
+      is_anonymous: isAnonymous,
+      reporter_display_name: reporterDisplayName,
       before_photos: payload.photoUrl
         ? [payload.photoUrl]
         : ['https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=600&q=80'],
@@ -168,7 +300,7 @@ export const citizenService = {
       id: `NOTIF-${Date.now()}`,
       issue_id: newId,
       title: 'Complaint Received',
-      message: `Your complaint ${newId} has been successfully submitted and logged with Kopargaon Municipal Council.`,
+      message: `Your complaint ${newId} has been successfully submitted as ${reporterDisplayName}.`,
       timestamp: new Date().toISOString(),
       type: 'INFO',
       read: false,
@@ -193,6 +325,8 @@ export const citizenService = {
 
   async resetDemo(): Promise<void> {
     localStorage.setItem(CITIZEN_NOTIFICATIONS_KEY, JSON.stringify(DEFAULT_NOTIFICATIONS));
+    localStorage.setItem(CITIZEN_PROFILE_KEY, JSON.stringify(DEFAULT_CITIZEN_PROFILE));
+    localStorage.setItem(CITIZEN_LEADERBOARD_KEY, JSON.stringify(MOCK_LEADERBOARD));
     window.dispatchEvent(new Event('kopargov_state_updated'));
   },
 };
