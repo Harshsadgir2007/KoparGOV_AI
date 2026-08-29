@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import cie_router, health_router, workflow_router
+from app.routers import cie_router, health_router, workflow_router, issues_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(cie_router)
 app.include_router(workflow_router)
+app.include_router(issues_router)
 
 
 @app.get("/", summary="Root service metadata endpoint")

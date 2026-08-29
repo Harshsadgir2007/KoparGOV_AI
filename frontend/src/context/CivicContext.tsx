@@ -86,6 +86,15 @@ export const CivicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     refreshData();
+    const handleStateUpdate = () => {
+      refreshData();
+    };
+    window.addEventListener('kopargov_state_updated', handleStateUpdate);
+    window.addEventListener('storage', handleStateUpdate);
+    return () => {
+      window.removeEventListener('kopargov_state_updated', handleStateUpdate);
+      window.removeEventListener('storage', handleStateUpdate);
+    };
   }, [refreshData]);
 
   const approveRecommendation = async (id: string, officerName = 'Municipal Commissioner') => {

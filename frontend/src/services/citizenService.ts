@@ -1,6 +1,9 @@
 import { CivicIssue, CivicCategory, CivicStatus, CitizenProfile, LeaderboardEntry, CitizenIdentityMode } from '../types';
 import { issueService } from './issueService';
 import { DEFAULT_CITIZEN_PROFILE, MOCK_LEADERBOARD } from '../mock/citizens';
+import { API_ENDPOINTS } from '../config/api';
+import { transformCivicIssueToBackend } from './cieService';
+
 
 export interface CitizenIssuePayload {
   category: CivicCategory;
@@ -290,9 +293,32 @@ export const citizenService = {
       }
     };
 
+    // Post to FastAPI backend for database persistence and immediate CIE evaluation
+    try {
+      const backendPayload = transformCivicIssueToBackend(newIssue);
+      const res = await fetch(API_ENDPOINTS.ISSUES, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPayload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.cie_result?.mcda_rankings?.length) {
+          const matchingRank = data.cie_result.mcda_rankings.find((r: any) => r.issue_id === newId);
+          if (matchingRank) {
+            newIssue.priority_score = matchingRank.composite_score;
+            newIssue.priority_level = matchingRank.priority_level;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`FastAPI backend issues endpoint offline, issue ${newId} saved locally:`, err);
+    }
+
     allIssues.unshift(newIssue);
     localStorage.setItem('kopargov_unified_issues_v2', JSON.stringify(allIssues));
     window.dispatchEvent(new Event('kopargov_state_updated'));
+
 
     // Create confirmation notification
     const notifications = loadNotifications();

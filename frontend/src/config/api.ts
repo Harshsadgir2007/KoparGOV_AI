@@ -10,6 +10,8 @@ export const API_BASE_URL =
 export const API_ENDPOINTS = {
   HEALTH: `${API_BASE_URL}/health`,
   ROOT: `${API_BASE_URL}/`,
+  ISSUES: `${API_BASE_URL}/api/issues`,
+  ISSUE_DETAIL: (id: string) => `${API_BASE_URL}/api/issues/${id}`,
   CIE_EVALUATE: `${API_BASE_URL}/api/cie/evaluate`,
   CIE_SCENARIO: `${API_BASE_URL}/api/cie/scenario`,
   WORKFLOW_STATE: (id: string) => `${API_BASE_URL}/api/workflow/${id}`,
@@ -19,3 +21,4 @@ export const API_ENDPOINTS = {
   WORKFLOW_START: (id: string) => `${API_BASE_URL}/api/workflow/${id}/start`,
   WORKFLOW_RESOLVE: (id: string) => `${API_BASE_URL}/api/workflow/${id}/resolve`,
 };
+

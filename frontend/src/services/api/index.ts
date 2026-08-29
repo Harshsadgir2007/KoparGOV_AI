@@ -1,8 +1,8 @@
 import { CivicIssue, MunicipalResources, AnalyticsOverview, AssignmentDetails, ResolutionDetails } from '../../types';
 import { INITIAL_ISSUES, INITIAL_RESOURCES, INITIAL_ANALYTICS } from '../../data/mockData';
 import { INITIAL_MOCK_ISSUES } from '../../mock/issues';
-import { API_BASE_URL } from '../../config/api';
-import { cieService } from '../cieService';
+import { API_BASE_URL, API_ENDPOINTS } from '../../config/api';
+import { cieService, transformCivicIssueToBackend } from '../cieService';
 
 const ISSUES_STORAGE_KEY = 'kopargov_unified_issues_v2';
 const RESOURCES_STORAGE_KEY = 'kopargov_resources_v1';
@@ -167,6 +167,18 @@ export const api = {
         }
       }
     };
+
+    // Post to backend database and run CIE
+    try {
+      const backendPayload = transformCivicIssueToBackend(fullIssue);
+      await fetch(API_ENDPOINTS.ISSUES, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendPayload),
+      });
+    } catch (err) {
+      console.warn('Backend issues API offline, persisting locally:', err);
+    }
 
     issues.unshift(fullIssue);
     saveStoredIssues(issues);
