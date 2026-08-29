@@ -24,6 +24,12 @@ import {
   Trophy,
   Info,
   Edit3,
+  Smartphone,
+  QrCode,
+  Copy,
+  Check,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
 
 interface CategoryOption {
@@ -45,6 +51,8 @@ const CATEGORIES: CategoryOption[] = [
 export const CitizenReportPage: React.FC = () => {
   const navigate = useNavigate();
   const identitySectionRef = useRef<HTMLDivElement>(null);
+  const mobileCameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // User Profile
   const [profile, setProfile] = useState<CitizenProfile | null>(null);
@@ -56,7 +64,6 @@ export const CitizenReportPage: React.FC = () => {
   const [landmark, setLandmark] = useState('');
 
   // Privacy & Identity State (Source of Truth Matrix)
-  // Default: ANONYMOUS complaint identity, Leaderboard OFF
   const [identityMode, setIdentityMode] = useState<CitizenIdentityMode>('ANONYMOUS');
   const [leaderboardEnabled, setLeaderboardEnabled] = useState(false);
   const [alias, setAlias] = useState('CivicChampion');
@@ -68,6 +75,14 @@ export const CitizenReportPage: React.FC = () => {
   // Photo State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoSource, setPhotoSource] = useState<'camera' | 'phone_sync' | 'file' | null>(null);
+
+  // Phone Sync Modal State
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [phoneSyncStatus, setPhoneSyncStatus] = useState<'IDLE' | 'WAITING' | 'SYNCED'>('WAITING');
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [smsSent, setSmsSent] = useState(false);
 
   // Form Validation & Submission State
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -81,6 +96,7 @@ export const CitizenReportPage: React.FC = () => {
       setIdentityMode(p.identity_mode || 'ANONYMOUS');
       setLeaderboardEnabled(p.leaderboard_enabled || false);
       if (p.alias) setAlias(p.alias);
+      if (p.phone) setPhoneNumber(p.phone);
     }
     loadProfile();
   }, []);
@@ -115,23 +131,56 @@ export const CitizenReportPage: React.FC = () => {
     setErrors(prev => ({ ...prev, location: '' }));
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, source: 'camera' | 'file') => {
     setPhotoError(null);
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setPhotoError('Image size exceeds 5MB. Try Again.');
+      if (file.size > 8 * 1024 * 1024) {
+        setPhotoError('Image size exceeds 8MB. Please select a smaller photo.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result as string);
+        setPhotoSource(source);
       };
       reader.onerror = () => {
-        setPhotoError('Unable to add this photo. Try Again.');
+        setPhotoError('Unable to process this image. Try again.');
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Simulate Instant Phone Sync (QR / Mobile Handshake Demo)
+  const handleSimulatePhoneSync = () => {
+    setPhoneSyncStatus('SYNCED');
+    setTimeout(() => {
+      setPhotoPreview('https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=800&q=80');
+      setPhotoSource('phone_sync');
+      setPhoneModalOpen(false);
+      setPhoneSyncStatus('WAITING');
+      // Auto-set location if not set yet
+      if (!coords) {
+        setCoords([19.8917, 74.4789]);
+        setLocationStatus('CAPTURED');
+      }
+    }, 1200);
+  };
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/citizen/report`;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleSendSms = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneNumber) return;
+    setSmsSent(true);
+    setTimeout(() => {
+      handleSimulatePhoneSync();
+    }, 1500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,7 +197,6 @@ export const CitizenReportPage: React.FC = () => {
       newErrors.location = 'Please provide the issue location.';
     }
 
-    // Conditional alias validation: Required when Anonymous + Leaderboard ON
     if (identityMode === 'ANONYMOUS' && leaderboardEnabled && !alias.trim()) {
       newErrors.alias = 'Please choose a public alias for the leaderboard.';
     }
@@ -410,33 +458,100 @@ export const CitizenReportPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. Photo Upload & Preview */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
-            Add Photo Evidence <span className="text-slate-400 font-normal">(Optional)</span>
-          </label>
+        {/* ========================================================================= */}
+        {/* 4. PHOTO EVIDENCE WITH "UPLOAD USING PHONE" / CAMERA OPTIONS              */}
+        {/* ========================================================================= */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-800 block">
+              Add Photo Evidence <span className="text-slate-400 font-normal">(Optional)</span>
+            </label>
+            <span className="text-[10px] text-sky-800 bg-sky-50 px-2 py-0.5 rounded-full font-semibold border border-sky-200">
+              Camera / Phone Upload Ready
+            </span>
+          </div>
 
           {!photoPreview ? (
-            <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl bg-slate-50 cursor-pointer transition-colors">
-              <Camera className="w-8 h-8 text-slate-400 mb-1" />
-              <span className="text-xs font-bold text-slate-700">Take Photo or Upload Image</span>
-              <span className="text-[10px] text-slate-400">JPG, PNG up to 5MB</span>
+            <div className="space-y-2.5">
+              {/* Hidden file inputs for direct camera capture and standard file pick */}
               <input
+                ref={mobileCameraInputRef}
                 type="file"
                 accept="image/*"
-                onChange={handlePhotoUpload}
-                className="sr-only"
+                capture="environment"
+                onChange={e => handlePhotoUpload(e, 'camera')}
+                className="hidden"
               />
-            </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={e => handlePhotoUpload(e, 'file')}
+                className="hidden"
+              />
+
+              {/* Action Choices Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Snap Live Photo (Mobile Camera) */}
+                <button
+                  type="button"
+                  onClick={() => mobileCameraInputRef.current?.click()}
+                  className="p-3.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-sky-950 block">Take Photo</span>
+                  <span className="text-[10px] text-sky-700 font-medium">Use device camera</span>
+                </button>
+
+                {/* 2. Upload Using Phone (QR Code / Mobile Hand-off) */}
+                <button
+                  type="button"
+                  onClick={() => setPhoneModalOpen(true)}
+                  className="p-3.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-purple-950 block">Upload via Phone</span>
+                  <span className="text-[10px] text-purple-700 font-medium">Scan QR or SMS link</span>
+                </button>
+
+                {/* 3. Browse Files / Gallery */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 block">Browse Files</span>
+                  <span className="text-[10px] text-slate-500 font-medium">JPG, PNG up to 8MB</span>
+                </button>
+              </div>
+            </div>
           ) : (
-            <div className="relative rounded-xl overflow-hidden border border-slate-300 aspect-video max-h-48 bg-slate-100">
+            <div className="relative rounded-2xl overflow-hidden border border-slate-300 aspect-video max-h-52 bg-slate-900 shadow-sm">
               <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+              
+              <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold flex items-center gap-1.5 border border-slate-700">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>
+                  {photoSource === 'phone_sync' ? 'Synced from Mobile Phone' : photoSource === 'camera' ? 'Captured via Camera' : 'Photo Attached'}
+                </span>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setPhotoPreview(null)}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 text-xs font-bold flex items-center gap-1 shadow-md cursor-pointer"
+                onClick={() => {
+                  setPhotoPreview(null);
+                  setPhotoSource(null);
+                }}
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 text-xs font-bold flex items-center gap-1 shadow-md cursor-pointer transition-colors"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
                 <span>Remove</span>
               </button>
             </div>
@@ -689,6 +804,136 @@ export const CitizenReportPage: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* ========================================================================= */}
+      {/* "UPLOAD USING PHONE" QR CODE & MOBILE HAND-OFF MODAL                      */}
+      {/* ========================================================================= */}
+      {phoneModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                  <Smartphone className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-sm">Upload Photo using Phone</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">Cross-device live camera sync</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPhoneModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {/* QR Code Card */}
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col items-center text-center space-y-3">
+              {/* Dynamic Simulated QR SVG */}
+              <div className="w-40 h-40 bg-white p-3 rounded-2xl border border-slate-300 shadow-xs flex items-center justify-center relative group">
+                <svg viewBox="0 0 100 100" className="w-full h-full">
+                  {/* Outer Frame */}
+                  <rect x="5" y="5" width="30" height="30" rx="4" fill="none" stroke="#0F172A" strokeWidth="6" />
+                  <rect x="13" y="13" width="14" height="14" rx="2" fill="#0284C7" />
+                  
+                  <rect x="65" y="5" width="30" height="30" rx="4" fill="none" stroke="#0F172A" strokeWidth="6" />
+                  <rect x="73" y="13" width="14" height="14" rx="2" fill="#0284C7" />
+                  
+                  <rect x="5" y="65" width="30" height="30" rx="4" fill="none" stroke="#0F172A" strokeWidth="6" />
+                  <rect x="13" y="73" width="14" height="14" rx="2" fill="#0284C7" />
+                  
+                  {/* Data Matrix Dots */}
+                  <rect x="45" y="10" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="45" y="25" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="45" y="45" width="10" height="10" rx="2" fill="#0284C7" />
+                  <rect x="10" y="45" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="25" y="45" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="65" y="45" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="80" y="45" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="45" y="65" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="45" y="80" width="8" height="8" rx="2" fill="#334155" />
+                  <rect x="65" y="65" width="12" height="12" rx="2" fill="#0F172A" />
+                  <rect x="80" y="80" width="12" height="12" rx="2" fill="#0F172A" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/0 group-hover:bg-slate-900/10 rounded-2xl transition-colors" />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-black text-slate-900">
+                  Scan QR with your Smartphone
+                </p>
+                <p className="text-[11px] text-slate-500 leading-normal max-w-xs">
+                  Point your phone's camera at the QR code to snap and sync photo evidence directly to this form.
+                </p>
+              </div>
+
+              {/* Status pulse */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping" />
+                <span>{phoneSyncStatus === 'SYNCED' ? 'Photo Received!' : 'Waiting for phone connection...'}</span>
+              </div>
+            </div>
+
+            {/* Or Send SMS / Copy Link */}
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700">Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Copy Mobile Link</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Instant Simulation Demo Button */}
+                <button
+                  type="button"
+                  onClick={handleSimulatePhoneSync}
+                  className="flex-1 py-2.5 px-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-purple-200" />
+                  <span>Simulate Phone Snap</span>
+                </button>
+              </div>
+
+              {/* SMS Link Send Form */}
+              <form onSubmit={handleSendSms} className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-[11px] font-bold text-slate-700 block">
+                  Or text a camera link to your phone:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={e => setPhoneNumber(e.target.value)}
+                    placeholder="+91 98220 44112"
+                    className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shrink-0 cursor-pointer"
+                  >
+                    {smsSent ? 'Sent ✓' : 'Send Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
