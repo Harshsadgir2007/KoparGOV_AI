@@ -1,32 +1,65 @@
-# React + TypeScript + Vite
+# KoparGov AI — Municipal Civic Decision Support Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An AI-powered civic intelligence & resource allocation decision support system for municipal corporations, featuring the **Civic Impact Engine (CIE)**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📁 Project Architecture
 
-## React Compiler
+The project is structured with clean frontend and backend separation:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```text
+KoparGOV_AI/
+├── frontend/                     # React + Vite + TypeScript Frontend Application
+│   ├── src/
+│   │   ├── components/           # UI components (dashboard, issues, recommendation, citizen, analytics, map)
+│   │   ├── pages/                # Officer and Citizen route views
+│   │   ├── services/             # Mock & API service layer (ready for backend integration)
+│   │   ├── mock/                 # Isolated mock data fixtures
+│   │   ├── context/              # React contexts (Auth, Civic, Toast)
+│   │   └── types/                # TypeScript domain models and interfaces
+│   ├── public/                   # Static assets & icons
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── backend/                      # FastAPI + Python Engine
+│   └── ...                       # Backend services, models, & optimization logic
+│
+├── .gitignore
+└── README.md
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## 🚀 Running the Frontend
+
+```bash
+# Navigate to the frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start local development server (runs on port 5173 with local network support)
+npm run dev
+
+# Build production bundle
+npm run build
+```
+
+---
+
+## 🏛️ Key Capabilities
+
+- **Officer Portal (`/dashboard`, `/issues`, `/recommendations/:id`, `/assignments`, `/map`, `/analytics`)**:
+  - CIE Multi-Factor Civic Priority Scoring
+  - Resource Availability & Team Dispatch Recommendations
+  - Alternative Allocation Trade-off Analysis
+  - Spatial GIS Map Explorer with heatmap density and ward filters
+  - Performance Analytics & Decision-Support Comparison
+- **Citizen Redressal Portal (`/citizen`, `/citizen/report`, `/citizen/issues`, `/citizen/leaderboard`, `/citizen/profile`)**:
+  - Multi-category Complaint Filing with In-Browser Live Camera & Cross-Device Phone Sync
+  - Real Name vs. Anonymous Alias Privacy Matrix
+  - Ethical Civic Leaderboard
+  - Live Complaint Progress Tracking & Notification Drawer
