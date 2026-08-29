@@ -16,10 +16,14 @@ from app.models.decision import (
     MCDAScoreResult,
     OptimizationAllocationPlan,
 )
+from app.core.authority_router import AuthorityRoutingEngine
 
 
 class ExplanationEngine:
     """Generates transparent, rule-based explanations for prioritized issues."""
+
+    def __init__(self, authority_router: Optional[AuthorityRoutingEngine] = None):
+        self.authority_router = authority_router or AuthorityRoutingEngine()
 
     # Human-readable display titles for MCDA criteria
     FACTOR_DISPLAY_NAMES: Dict[str, str] = {
@@ -186,6 +190,12 @@ class ExplanationEngine:
                 f"Status: DEFERRED ({'incomplete resource data' if not has_complete_resources else 'resource constraints'})."
             )
 
+        auth_routing = self.authority_router.determine_routing(
+            issue=issue,
+            composite_score=mcda_result.composite_score,
+            priority_level=mcda_result.priority_level,
+        )
+
         return IssueExplanation(
             issue_id=issue.id,
             priority_level=mcda_result.priority_level,
@@ -197,6 +207,7 @@ class ExplanationEngine:
             is_recommended_for_allocation=is_selected,
             allocation_rationale=allocation_rationale,
             summary=summary,
+            authority_routing=auth_routing,
         )
 
     def generate_batch_explanations(

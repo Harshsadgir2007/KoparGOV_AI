@@ -1,10 +1,21 @@
 """Civic Intelligence Engine evaluation router."""
 
 import logging
+from typing import List, Union
 from fastapi import APIRouter, HTTPException, status
-from app.models.decision import CIEEvaluationRequest, CIEPipelineResponse
+from pydantic import BaseModel
+from app.models.civic_issue import CivicIssue
+from app.models.decision import (
+    CIEEvaluationRequest,
+    CIEPipelineResponse,
+    MCDARanking,
+    OptimizationResult,
+)
+from app.models.resources import MunicipalResources
 from app.models.scenario import CIEScenarioRequest, CIEScenarioResponse
 from app.services.db_service import DatabaseService
+from app.core.mcda import MCDAService
+from app.core.optimizer import ResourceOptimizerService
 from app.services.pipeline import CIEPipelineService
 from app.services.scenario_service import ScenarioService
 
@@ -14,8 +25,21 @@ router = APIRouter(prefix="/api/cie", tags=["CIE"])
 
 # Initialize default services
 pipeline_service = CIEPipelineService()
+mcda_service = MCDAService()
+optimizer_service = ResourceOptimizerService()
 scenario_service = ScenarioService()
 db_service = DatabaseService()
+
+
+class PrioritizeRequest(BaseModel):
+    """Payload for pure MCDA prioritization."""
+    issues: List[CivicIssue]
+
+
+class OptimizeRequest(BaseModel):
+    """Payload for pure resource optimization."""
+    issues: List[CivicIssue]
+    resources: MunicipalResources
 
 
 @router.post(
@@ -55,6 +79,60 @@ async def evaluate_issues(request: CIEEvaluationRequest) -> CIEPipelineResponse:
 
 
 @router.post(
+    "/prioritize",
+    response_model=List[MCDARanking],
+    summary="Pure MCDA Prioritization",
+    description="Runs deterministic 6-factor MCDA scoring and ranks civic complaints.",
+    status_code=status.HTTP_200_OK,
+)
+async def prioritize_issues(payload: Union[PrioritizeRequest, List[CivicIssue]]) -> List[MCDARanking]:
+    """Calculate deterministic MCDA priority scores and rankings for given issues."""
+    try:
+        issues_list = payload.issues if isinstance(payload, PrioritizeRequest) else payload
+        return mcda_service.rank_issues(issues_list)
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"MCDA Prioritization failed: {str(e)}",
+        )
+
+
+@router.post(
+    "/optimize",
+    response_model=OptimizationResult,
+    summary="Pure OR-Tools Resource Optimization",
+    description="Calculates optimal knapsack allocation given issues and resource constraints.",
+    status_code=status.HTTP_200_OK,
+)
+async def optimize_resources(request: OptimizeRequest) -> OptimizationResult:
+    """Run Google OR-Tools optimizer subject to municipal resource bounds."""
+    try:
+        # First compute MCDA rankings for the issues
+        rankings = mcda_service.rank_issues(request.issues)
+        opt_result = optimizer_service.optimize(
+            issues=request.issues,
+            mcda_rankings=rankings,
+            resources=request.resources,
+        )
+        return opt_result
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"OR-Tools optimization failed: {str(e)}",
+        )
+
+
+@router.post(
     "/scenario",
     response_model=CIEScenarioResponse,
     summary="What-If municipal resource scenario analysis",
@@ -80,4 +158,3 @@ async def evaluate_scenario(request: CIEScenarioRequest) -> CIEScenarioResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"What-If Scenario execution failed: {str(e)}",
         )
-

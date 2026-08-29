@@ -30,7 +30,15 @@ except ImportError:
 
 
 _GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
+    "users": {},
     "issues": {},
+    "resources": {},
+    "recommendations": {},
+    "assignments": {},
+    "resolutions": {},
+    "contractors": {},
+    "roads": {},
+    "notifications": {},
     "cie_results": {},
     "workflow": {},
 }
@@ -291,4 +299,108 @@ class DatabaseService:
         else:
             docs = self.client.collection("workflow").stream()
             return [WorkflowRecord(**doc.to_dict()) for doc in docs]
+
+    # --------------------------------------------------------------------------
+    # Synthetic Roads Persistence (Collection: 'roads')
+    # --------------------------------------------------------------------------
+
+    def save_road(self, road_dict: Dict[str, Any]) -> str:
+        """Save or update a municipal road record in Firestore or mock store."""
+        road_id = road_dict.get("road_id") or f"RD-{uuid.uuid4().hex[:6].upper()}"
+        road_dict["road_id"] = road_id
+        if self._using_mock:
+            self._mock_db["roads"][road_id] = road_dict
+        else:
+            self.client.collection("roads").document(road_id).set(road_dict)
+        return road_id
+
+    def get_road(self, road_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a single road record."""
+        if self._using_mock:
+            return self._mock_db["roads"].get(road_id)
+        else:
+            doc = self.client.collection("roads").document(road_id).get()
+            return doc.to_dict() if doc.exists else None
+
+    def list_roads(self) -> List[Dict[str, Any]]:
+        """List all municipal roads."""
+        if self._using_mock:
+            return list(self._mock_db["roads"].values())
+        else:
+            docs = self.client.collection("roads").stream()
+            return [doc.to_dict() for doc in docs]
+
+    # --------------------------------------------------------------------------
+    # Municipal Resources (Collection: 'resources')
+    # --------------------------------------------------------------------------
+
+    def save_resources(self, resources_dict: Dict[str, Any], doc_id: str = "current") -> str:
+        """Save active municipal resource availability."""
+        if self._using_mock:
+            self._mock_db["resources"][doc_id] = resources_dict
+        else:
+            self.client.collection("resources").document(doc_id).set(resources_dict)
+        return doc_id
+
+    def get_resources(self, doc_id: str = "current") -> Optional[Dict[str, Any]]:
+        """Retrieve active municipal resource constraints."""
+        if self._using_mock:
+            return self._mock_db["resources"].get(doc_id)
+        else:
+            doc = self.client.collection("resources").document(doc_id).get()
+            return doc.to_dict() if doc.exists else None
+
+    # --------------------------------------------------------------------------
+    # Notifications (Collection: 'notifications')
+    # --------------------------------------------------------------------------
+
+    def save_notification(self, notif_dict: Dict[str, Any]) -> str:
+        """Save a notification event."""
+        notif_id = notif_dict.get("id") or f"NOTIF-{uuid.uuid4().hex[:8]}"
+        notif_dict["id"] = notif_id
+        notif_dict["created_at"] = notif_dict.get("created_at") or datetime.now(timezone.utc).isoformat()
+        if self._using_mock:
+            self._mock_db["notifications"][notif_id] = notif_dict
+        else:
+            self.client.collection("notifications").document(notif_id).set(notif_dict)
+        return notif_id
+
+    def list_notifications(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List notifications, optionally filtered by user ID."""
+        if self._using_mock:
+            notifs = list(self._mock_db["notifications"].values())
+            if user_id:
+                notifs = [n for n in notifs if n.get("user_id") == user_id or not n.get("user_id")]
+            notifs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            return notifs
+        else:
+            query = self.client.collection("notifications")
+            if user_id:
+                query = query.where("user_id", "==", user_id)
+            docs = query.stream()
+            res = [doc.to_dict() for doc in docs]
+            res.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            return res
+
+    # --------------------------------------------------------------------------
+    # Users (Collection: 'users')
+    # --------------------------------------------------------------------------
+
+    def save_user(self, user_dict: Dict[str, Any]) -> str:
+        """Save or update user profile."""
+        uid = user_dict.get("uid") or user_dict.get("id") or f"USR-{uuid.uuid4().hex[:6]}"
+        user_dict["uid"] = uid
+        if self._using_mock:
+            self._mock_db["users"][uid] = user_dict
+        else:
+            self.client.collection("users").document(uid).set(user_dict)
+        return uid
+
+    def get_user(self, uid: str) -> Optional[Dict[str, Any]]:
+        """Retrieve user by UID."""
+        if self._using_mock:
+            return self._mock_db["users"].get(uid)
+        else:
+            doc = self.client.collection("users").document(uid).get()
+            return doc.to_dict() if doc.exists else None
 

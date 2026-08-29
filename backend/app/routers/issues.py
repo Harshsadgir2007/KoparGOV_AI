@@ -22,6 +22,14 @@ db_service = DatabaseService()
 pipeline_service = CIEPipelineService()
 resilience_service = get_resilience_service()
 
+# In-memory cross-device temporary photo sync buffer
+_sync_photos: dict[str, str] = {}
+
+
+class SyncPhotoPayload(BaseModel):
+    """Payload for cross-device mobile photo synchronization."""
+    photo_data: str
+
 
 class CreateIssuePayload(CivicIssue):
     """Payload for submitting a civic issue, with optional resources override."""
@@ -35,6 +43,41 @@ class CreateIssueResponse(BaseModel):
     status: str = "SUCCESS"
     operation_id: Optional[str] = None
     message: Optional[str] = None
+
+
+@router.post(
+    "/sync-photo/{session_id}",
+    summary="Upload mobile photo for cross-device desktop sync",
+    status_code=status.HTTP_200_OK,
+)
+async def upload_sync_photo(session_id: str, payload: SyncPhotoPayload):
+    """Store uploaded photo from phone for live sync with desktop report."""
+    _sync_photos[session_id] = payload.photo_data
+    return {"status": "SUCCESS", "session_id": session_id}
+
+
+@router.get(
+    "/sync-photo/{session_id}",
+    summary="Retrieve live synchronized photo for desktop report",
+    status_code=status.HTTP_200_OK,
+)
+async def get_sync_photo(session_id: str):
+    """Retrieve photo uploaded by smartphone camera for the given session ID."""
+    photo = _sync_photos.get(session_id)
+    if not photo:
+        return {"status": "WAITING", "photo_data": None}
+    return {"status": "SYNCED", "photo_data": photo}
+
+
+@router.delete(
+    "/sync-photo/{session_id}",
+    summary="Clear photo sync buffer for a session",
+    status_code=status.HTTP_200_OK,
+)
+async def clear_sync_photo(session_id: str):
+    """Clear photo sync buffer."""
+    _sync_photos.pop(session_id, None)
+    return {"status": "CLEARED"}
 
 
 @router.get(
@@ -158,4 +201,61 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
             cie_result=None,
             status=f"SAVED_WITHOUT_PIPELINE: {str(e)}",
         )
+
+
+@router.post(
+    "/{issue_id}/assign",
+    summary="Assign team or contractor to an approved issue",
+    status_code=status.HTTP_200_OK,
+)
+async def assign_issue_endpoint(
+    issue_id: str,
+    payload: Optional[dict] = None,
+    x_officer_role: Optional[str] = None,
+    officer_id: Optional[str] = None,
+):
+    """Assign team or contractor to an issue."""
+    from app.models.workflow import AssignWorkflowRequest
+    from app.routers.workflow import assign_issue
+
+    data = payload or {}
+    req = AssignWorkflowRequest(
+        assigned_team=data.get("assigned_team") or data.get("contractor_id") or "Rapid Response Squad",
+        officer_id=data.get("officer_id") or officer_id,
+        notes=data.get("notes"),
+    )
+    return await assign_issue(
+        issue_id=issue_id,
+        request=req,
+        x_officer_role=x_officer_role,
+    )
+
+
+@router.post(
+    "/{issue_id}/resolve",
+    summary="Mark civic issue resolved with evidence upload",
+    status_code=status.HTTP_200_OK,
+)
+async def resolve_issue_endpoint(
+    issue_id: str,
+    payload: Optional[dict] = None,
+    x_officer_role: Optional[str] = None,
+    officer_id: Optional[str] = None,
+):
+    """Mark civic complaint as resolved with completion notes."""
+    from app.models.workflow import ResolveWorkflowRequest
+    from app.routers.workflow import resolve_issue
+
+    data = payload or {}
+    req = ResolveWorkflowRequest(
+        officer_id=data.get("officer_id") or officer_id or "Municipal Officer",
+        resolution_notes=data.get("completion_notes") or data.get("resolution_notes") or "Issue resolved.",
+        notes=data.get("notes"),
+    )
+    return await resolve_issue(
+        issue_id=issue_id,
+        request=req,
+        x_officer_role=x_officer_role,
+    )
+
 

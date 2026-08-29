@@ -1,3 +1,5 @@
+import { AuthorityRoutingResult, AuthorityRole } from './cie';
+
 export type CivicPriorityLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type CivicStatus =
@@ -84,6 +86,7 @@ export interface CIERecommendationDetail {
   allocation_rationale?: string;
   summary?: string;
   backend_source?: 'LIVE_FASTAPI' | 'LOCAL_MOCK_FALLBACK';
+  authority_routing?: AuthorityRoutingResult;
 }
 
 export * from './cie';
@@ -237,4 +240,22 @@ export interface UserSession {
   designation?: string;
   department?: string;
   phone?: string;
+  officer_role?: AuthorityRole;
+  ward_number?: number;
+}
+
+export interface MunicipalRoad {
+  road_id: string;
+  road_name: string;
+  ward: string;
+  ward_number: number;
+  length_km: number;
+  surface_type: string;
+  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CRITICAL';
+  issue_type?: string | null;
+  priority: CivicPriorityLevel;
+  assigned_contractor_id?: string | null;
+  assigned_contractor_name?: string | null;
+  coordinates: [number, number][];
+  last_inspected?: string | null;
 }

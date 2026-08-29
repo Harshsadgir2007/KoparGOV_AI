@@ -89,6 +89,39 @@ const createFleetMarker = (label: string, type: 'vehicle' | 'team') => {
   });
 };
 
+// Project & Contractor Inspection Marker
+const createProjectMarker = (status: string) => {
+  const isFlagged = status === 'INSPECTION_RECOMMENDED';
+  const bgColor = isFlagged ? '#DC2626' : '#0284C7';
+
+  const html = `
+    <div style="
+      background-color: ${bgColor};
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      cursor: pointer;
+      ${isFlagged ? 'animation: pulse 2s infinite;' : ''}
+    ">
+      <span>🏗️</span>
+    </div>
+  `;
+
+  return L.divIcon({
+    className: 'custom-project-marker',
+    html,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+  });
+};
+
 // Component to handle map re-centering
 const ChangeView: React.FC<{ center: [number, number]; zoom: number }> = ({ center, zoom }) => {
   const map = useMap();
@@ -105,6 +138,7 @@ interface KopargaonMapProps {
   zoom?: number;
   compact?: boolean;
   showResources?: boolean;
+  showProjects?: boolean;
 }
 
 // Synthetic Fleet / Team Locations in Kopargaon
@@ -115,6 +149,33 @@ const MOCK_FLEET_RESOURCES = [
   { id: 'FL-4', name: 'Drainage Squad', type: 'team' as const, pos: [19.8935, 74.4760] as [number, number], status: '4 Personnel deployed' },
 ];
 
+const MOCK_PROJECTS_LAYER = [
+  {
+    id: 'PRJ-024',
+    name: 'Ward 5 Market Road (Resurfacing)',
+    contractor: 'ABC Infrastructure & Roadways',
+    pos: [19.8917, 74.4789] as [number, number],
+    status: 'INSPECTION_RECOMMENDED',
+    complaints: 17,
+  },
+  {
+    id: 'PRJ-019',
+    name: 'Ward 3 Subhash Road Feeder Pipeline',
+    contractor: 'Godavari Civil Engineers',
+    pos: [19.8942, 74.4721] as [number, number],
+    status: 'NORMAL',
+    complaints: 2,
+  },
+  {
+    id: 'PRJ-031',
+    name: 'Ward 1 Tilak Road LED Streetlight Grid',
+    contractor: 'Mahalaxmi Electricals',
+    pos: [19.8876, 74.4812] as [number, number],
+    status: 'WARNING',
+    complaints: 4,
+  },
+];
+
 export const KopargaonMap: React.FC<KopargaonMapProps> = ({
   issues,
   height = '600px',
@@ -122,6 +183,7 @@ export const KopargaonMap: React.FC<KopargaonMapProps> = ({
   zoom = 14,
   compact = false,
   showResources = false,
+  showProjects = true,
 }) => {
   return (
     <div style={{ height }} className="relative w-full rounded-xl overflow-hidden border border-slate-200 shadow-xs z-0">
@@ -213,6 +275,60 @@ export const KopargaonMap: React.FC<KopargaonMapProps> = ({
                   </div>
                   <p className="font-semibold text-slate-800">{res.name}</p>
                   <p className="text-[11px] text-slate-500">{res.status}</p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+        {/* Optional Municipal Public Works & Contractor Layer */}
+        {(showProjects ?? true) &&
+          MOCK_PROJECTS_LAYER.map(prj => (
+            <Marker
+              key={prj.id}
+              position={prj.pos}
+              icon={createProjectMarker(prj.status)}
+            >
+              <Popup className="custom-project-popup">
+                <div className="p-1.5 min-w-[240px] max-w-xs space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-1.5 pb-1 border-b border-slate-200">
+                    <span className="font-mono font-bold text-slate-900 text-xs">
+                      🏗️ {prj.id}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        prj.status === 'INSPECTION_RECOMMENDED'
+                          ? 'bg-red-100 text-red-800 font-bold border border-red-300'
+                          : prj.status === 'WARNING'
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-sky-100 text-sky-800'
+                      }`}
+                    >
+                      {prj.status === 'INSPECTION_RECOMMENDED' ? 'INSPECT NOW' : prj.status}
+                    </span>
+                  </div>
+
+                  <h4 className="font-bold text-slate-900 leading-snug">{prj.name}</h4>
+
+                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-1 text-[11px]">
+                    <div>
+                      <span className="text-slate-500">Contractor: </span>
+                      <strong className="text-slate-800">{prj.contractor}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Post-Handover Complaints: </span>
+                      <strong className="text-red-700 font-mono font-bold">{prj.complaints}</strong>
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <Link
+                      to="/contractors"
+                      className="w-full text-center py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors inline-flex items-center justify-center gap-1"
+                    >
+                      <span>CONTRACTOR QUALITY AUDIT</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
                 </div>
               </Popup>
             </Marker>

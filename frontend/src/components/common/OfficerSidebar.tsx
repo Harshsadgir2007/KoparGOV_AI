@@ -12,7 +12,8 @@ import {
   Users,
   Building2,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  HardHat,
 } from 'lucide-react';
 import { useCivic } from '../../context/CivicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +62,14 @@ export const OfficerSidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }
       name: 'Resource Assignments',
       href: '/assignments',
       icon: Truck,
+    },
+    {
+      name: 'Contractor Quality',
+      href: '/contractors',
+      icon: HardHat,
+      badge: 'Audit',
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+      activeBadgeColor: 'bg-amber-100 text-amber-900',
     },
     {
       name: 'Kopargaon GIS Map',

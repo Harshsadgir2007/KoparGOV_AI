@@ -7,15 +7,15 @@ export const INITIAL_MOCK_RECOMMENDATIONS: Record<string, CIERecommendationDetai
     ward: 'Ward 5 - Shivaji Chowk',
     category: 'Garbage Accumulation',
     status: 'PRIORITIZED', // PENDING review
-    priority_score: 87,
+    priority_score: 92.25,
     priority_level: 'CRITICAL',
     factors: {
       severity: 90,
-      urgency: 85,
-      population_affected: 95,
-      health_safety: 90,
-      location_sensitivity: 80,
-      complaint_age_days: 70,
+      urgency: 90,
+      population_affected: 1200,
+      health_safety: 85,
+      location_sensitivity: 90,
+      complaint_age_days: 3,
     },
     recommended_action: {
       headline: 'Deploy Vehicle 2 + 2 Workers',

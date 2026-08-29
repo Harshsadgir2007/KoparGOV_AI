@@ -5,13 +5,14 @@ Implements human-in-the-loop lifecycle state transitions:
 
 Guarantees:
 - Strict state-machine enforcement with clear HTTP 400 rejection on invalid transitions.
+- RBAC authorization check: rejects unauthenticated or citizen callers with HTTP 403 Forbidden.
 - Audit trail recording (officer_id, team assignment, approval/resolution timestamps, notes).
 - Full persistence integration via DatabaseService.
 """
 
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 
 from app.models.workflow import (
     ApproveWorkflowRequest,
@@ -31,6 +32,23 @@ router = APIRouter(prefix="/api/workflow", tags=["Workflow"])
 # Service instance for persistent lifecycle state management
 db_service = DatabaseService()
 resilience_service = get_resilience_service()
+
+
+def _verify_officer_authorization(
+    x_officer_role: Optional[str] = None,
+    officer_id: Optional[str] = None,
+) -> None:
+    """Enforce that only authenticated municipal officers can execute workflow transitions."""
+    if x_officer_role and x_officer_role.upper() == "CITIZEN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Citizen account cannot perform municipal officer workflow actions.",
+        )
+    if officer_id is not None and not str(officer_id).strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Municipal officer identity required.",
+        )
 
 
 def _get_or_create_workflow(issue_id: str) -> WorkflowRecord:
@@ -73,8 +91,11 @@ async def get_workflow_state(issue_id: str) -> WorkflowRecord:
 async def approve_issue(
     issue_id: str,
     request: ApproveWorkflowRequest,
+    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
 ) -> WorkflowRecord:
     """Approve a PENDING or RECOMMENDED civic issue for resolution."""
+    _verify_officer_authorization(x_officer_role, request.officer_id)
+
     workflow = _get_or_create_workflow(issue_id)
 
     allowed_states = [WorkflowStatus.PENDING.value, WorkflowStatus.RECOMMENDED.value]
@@ -91,6 +112,7 @@ async def approve_issue(
     workflow.status = WorkflowStatus.APPROVED.value
     workflow.officer_id = request.officer_id
     workflow.approved_at = now_iso
+    workflow.updated_at = now_iso
     if request.notes:
         workflow.notes = request.notes
 
@@ -121,8 +143,11 @@ async def approve_issue(
 async def reject_issue(
     issue_id: str,
     request: RejectWorkflowRequest,
+    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
 ) -> WorkflowRecord:
     """Reject a PENDING or RECOMMENDED civic issue with justification."""
+    _verify_officer_authorization(x_officer_role, request.officer_id)
+
     workflow = _get_or_create_workflow(issue_id)
 
     allowed_states = [WorkflowStatus.PENDING.value, WorkflowStatus.RECOMMENDED.value]
@@ -135,10 +160,11 @@ async def reject_issue(
             ),
         )
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     workflow.status = WorkflowStatus.REJECTED.value
     workflow.officer_id = request.officer_id
-    if request.reason:
-        workflow.rejection_reason = request.reason
+    workflow.rejection_reason = request.reason
+    workflow.updated_at = now_iso
 
     if not resilience_service.is_blackout_active():
         db_service.save_workflow_record(workflow)
@@ -167,26 +193,30 @@ async def reject_issue(
 async def assign_issue(
     issue_id: str,
     request: AssignWorkflowRequest,
+    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
 ) -> WorkflowRecord:
     """Assign an APPROVED civic issue to a designated field team."""
+    _verify_officer_authorization(x_officer_role, request.assigned_team)
+
     workflow = _get_or_create_workflow(issue_id)
 
-    allowed_states = [WorkflowStatus.APPROVED.value, WorkflowStatus.ASSIGNED.value]
-    if workflow.status not in allowed_states:
+    if workflow.status != WorkflowStatus.APPROVED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Cannot assign issue '{issue_id}' in '{workflow.status}' status. "
-                f"Only APPROVED issues can be assigned to a team."
+                f"Only APPROVED issues can be assigned."
             ),
         )
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     workflow.status = WorkflowStatus.ASSIGNED.value
     workflow.assigned_team = request.assigned_team
     if request.officer_id:
         workflow.officer_id = request.officer_id
     if request.notes:
         workflow.notes = request.notes
+    workflow.updated_at = now_iso
 
     if not resilience_service.is_blackout_active():
         db_service.save_workflow_record(workflow)
@@ -209,31 +239,36 @@ async def assign_issue(
 @router.post(
     "/{issue_id}/start",
     response_model=WorkflowRecord,
-    summary="Start field work on an assigned issue",
+    summary="Mark an assigned issue as in-progress",
     status_code=status.HTTP_200_OK,
 )
-async def start_issue_work(
+async def start_issue(
     issue_id: str,
     request: Optional[StartWorkflowRequest] = None,
+    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
 ) -> WorkflowRecord:
-    """Transition an ASSIGNED issue to IN_PROGRESS when field response begins."""
+    """Mark an ASSIGNED civic issue as IN_PROGRESS by field teams."""
+    if request and request.officer_id:
+        _verify_officer_authorization(x_officer_role, request.officer_id)
+
     workflow = _get_or_create_workflow(issue_id)
 
     if workflow.status != WorkflowStatus.ASSIGNED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Cannot start work on issue '{issue_id}' in '{workflow.status}' status. "
-                f"Only ASSIGNED issues can transition to IN_PROGRESS."
+                f"Cannot start issue '{issue_id}' in '{workflow.status}' status. "
+                f"Only ASSIGNED issues can be marked IN_PROGRESS."
             ),
         )
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     workflow.status = WorkflowStatus.IN_PROGRESS.value
-    if request:
-        if request.officer_id:
-            workflow.officer_id = request.officer_id
-        if request.notes:
-            workflow.notes = request.notes
+    if request and request.officer_id:
+        workflow.officer_id = request.officer_id
+    if request and request.notes:
+        workflow.notes = request.notes
+    workflow.updated_at = now_iso
 
     if not resilience_service.is_blackout_active():
         db_service.save_workflow_record(workflow)
@@ -262,8 +297,12 @@ async def start_issue_work(
 async def resolve_issue(
     issue_id: str,
     request: Optional[ResolveWorkflowRequest] = None,
+    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
 ) -> WorkflowRecord:
-    """Mark an IN_PROGRESS civic issue as successfully RESOLVED."""
+    """Mark an IN_PROGRESS civic issue as RESOLVED with proof."""
+    if request and request.officer_id:
+        _verify_officer_authorization(x_officer_role, request.officer_id)
+
     workflow = _get_or_create_workflow(issue_id)
 
     if workflow.status != WorkflowStatus.IN_PROGRESS.value:
@@ -278,11 +317,11 @@ async def resolve_issue(
     now_iso = datetime.now(timezone.utc).isoformat()
     workflow.status = WorkflowStatus.RESOLVED.value
     workflow.resolved_at = now_iso
-    if request:
-        if request.officer_id:
-            workflow.officer_id = request.officer_id
-        if request.resolution_notes:
-            workflow.resolution_notes = request.resolution_notes
+    if request and request.officer_id:
+        workflow.officer_id = request.officer_id
+    if request and request.resolution_notes:
+        workflow.resolution_notes = request.resolution_notes
+    workflow.updated_at = now_iso
 
     if not resilience_service.is_blackout_active():
         db_service.save_workflow_record(workflow)

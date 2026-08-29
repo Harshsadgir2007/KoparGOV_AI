@@ -6,6 +6,7 @@ export interface CIEIssuePayload {
   category: string;
   description?: string;
   location?: string;
+  ward_number?: number;
   severity: number;
   urgency: number;
   population_affected: number;
@@ -79,6 +80,34 @@ export interface FactorContribution {
   weighted_contribution: number;
 }
 
+export type AuthorityRole =
+  | 'WARD_INCHARGE'
+  | 'DEPARTMENT_OFFICER'
+  | 'CHIEF_OFFICER'
+  | 'TAHSILDAR_OR_RELEVANT_AUTHORITY';
+
+export type ApprovalStepStatus = 'LOCKED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ApprovalStep {
+  role: AuthorityRole;
+  title: string;
+  status: ApprovalStepStatus;
+  officer_id?: string;
+  officer_name?: string;
+  action_timestamp?: string;
+  notes?: string;
+}
+
+export interface AuthorityRoutingResult {
+  required_authority: AuthorityRole;
+  authority_title: string;
+  approval_chain: ApprovalStep[];
+  routing_reasons: string[];
+  expected_response_sla_hours: number;
+  is_multi_department?: boolean;
+  requires_inter_jurisdiction?: boolean;
+}
+
 export interface IssueExplanation {
   issue_id: string;
   priority_level: CivicPriorityLevel;
@@ -95,6 +124,7 @@ export interface IssueExplanation {
   is_recommended_for_allocation: boolean;
   allocation_rationale: string;
   summary: string;
+  authority_routing?: AuthorityRoutingResult;
 }
 
 export interface IssueValidationReport {
@@ -156,3 +186,87 @@ export interface CIEScenarioResponse {
   status: string;
 }
 
+// ----------------------------------------------------------------------------
+// Contractor Accountability & Project Inspection Models
+// ----------------------------------------------------------------------------
+
+export type InspectionRecommendationStatus = 'NORMAL' | 'WARNING' | 'INSPECTION_RECOMMENDED';
+export type InspectionOutcome = 'PASSED' | 'FAILED' | 'REQUIRES_REWORK' | 'NO_ISSUE_FOUND';
+
+export interface ContractorPerformanceScore {
+  overall_score: number;
+  on_time_score: number;
+  inspection_score: number;
+  quality_score: number;
+  complaint_score: number;
+  safety_score: number;
+  score_tier: 'EXCELLENT' | 'GOOD' | 'MONITORING' | 'REVIEW_RECOMMENDED' | string;
+}
+
+export interface Contractor {
+  contractor_id: string;
+  name: string;
+  categories: string[];
+  wards_served: string[];
+  contact_person: string;
+  phone: string;
+  active_projects: number;
+  completed_projects: number;
+  on_time_completion_rate: number;
+  inspection_pass_rate: number;
+  rework_count: number;
+  total_complaint_count: number;
+  safety_flags_count: number;
+  performance: ContractorPerformanceScore;
+  compliance_status: string;
+}
+
+export interface MunicipalProject {
+  project_id: string;
+  asset_id: string;
+  asset_name: string;
+  contractor_id: string;
+  contractor_name: string;
+  category: string;
+  ward: string;
+  ward_number: number;
+  coordinates: [number, number];
+  start_date: string;
+  planned_completion_date: string;
+  actual_completion_date?: string;
+  contract_value: number;
+  status: string;
+  post_completion_complaints: number;
+  high_severity_complaints: number;
+  safety_complaints: number;
+  recent_complaints_last_7_days: number;
+  rework_requests: number;
+  last_inspection_date?: string;
+  last_inspection_outcome?: InspectionOutcome;
+  cie_inspection_status: InspectionRecommendationStatus;
+  inspection_signals: string[];
+  cie_rationale?: string;
+}
+
+export interface ContractorAccountabilityEvent {
+  event_id: string;
+  contractor_id: string;
+  project_id: string;
+  asset_id: string;
+  timestamp: string;
+  event_type: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string;
+  evidence_summary: string;
+  status: string;
+  logged_by: string;
+}
+
+export interface RecordInspectionRequest {
+  project_id: string;
+  officer_id: string;
+  officer_name: string;
+  outcome: InspectionOutcome;
+  inspection_notes: string;
+  rework_instructions?: string;
+  evidence_photos?: string[];
+}

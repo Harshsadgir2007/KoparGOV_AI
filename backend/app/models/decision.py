@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 from .civic_issue import CivicIssue, PriorityLevel, IssueValidationReport
 from .resources import MunicipalResources, ResourceUsage
+from .authority import AuthorityRoutingResult
 
 
 class MCDAFactorScores(BaseModel):
@@ -83,6 +84,10 @@ class IssueExplanation(BaseModel):
         ...,
         description="High-level human-readable executive summary for municipal officers"
     )
+    authority_routing: Optional[AuthorityRoutingResult] = Field(
+        None,
+        description="Deterministic authority routing and approval hierarchy"
+    )
 
 
 class CIEPipelineResponse(BaseModel):
@@ -127,6 +132,9 @@ class CIEPipelineResponse(BaseModel):
 
 
 CIEPipelineResult = CIEPipelineResponse
+MCDARanking = MCDAScoreResult
+OptimizationResult = OptimizationAllocationPlan
+DecisionExplanation = IssueExplanation
 
 
 class CIEEvaluationRequest(BaseModel):

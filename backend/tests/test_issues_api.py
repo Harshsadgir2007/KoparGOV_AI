@@ -61,8 +61,39 @@ def test_create_and_get_issue_api(client):
     assert any(i["id"] == "ISSUE-API-TEST-1" for i in list_data)
 
 
+def test_sync_photo_upload_and_retrieve(client):
+    """Test mobile sync-photo upload, get, and delete lifecycle."""
+    session_id = "test-session-12345"
+
+    # Initially waiting
+    get_res = client.get(f"/api/issues/sync-photo/{session_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["status"] == "WAITING"
+
+    # Upload photo from mobile
+    dummy_photo = "data:image/jpeg;base64,/9j/4AAQSkZJRg=="
+    post_res = client.post(
+        f"/api/issues/sync-photo/{session_id}",
+        json={"photo_data": dummy_photo},
+    )
+    assert post_res.status_code == 200
+    assert post_res.json()["status"] == "SUCCESS"
+
+    # Now synced
+    get_res2 = client.get(f"/api/issues/sync-photo/{session_id}")
+    assert get_res2.status_code == 200
+    assert get_res2.json()["status"] == "SYNCED"
+    assert get_res2.json()["photo_data"] == dummy_photo
+
+    # Clear
+    del_res = client.delete(f"/api/issues/sync-photo/{session_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "CLEARED"
+
+
 def test_get_nonexistent_issue_returns_404(client):
-    """Test retrieving a non-existent issue ID returns HTTP 404."""
-    res = client.get("/api/issues/NONEXISTENT-ISSUE-ID-999")
+    """Test that requesting an unknown issue ID returns HTTP 404."""
+    res = client.get("/api/issues/NONEXISTENT-ISSUE-9999")
     assert res.status_code == 404
+
     assert "not found" in res.json()["detail"].lower()

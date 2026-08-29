@@ -291,3 +291,8 @@ class MCDAEngine:
             result.rank = rank_idx
 
         return results
+
+    rank_issues = evaluate_and_rank_batch
+
+
+MCDAService = MCDAEngine

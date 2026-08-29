@@ -1,0 +1,75 @@
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSySyntheticDemoApiKeyForHackathon_12345',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'kopargov-ai-demo.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kopargov-ai-demo',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'kopargov-ai-demo.appspot.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '100200300400',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:100200300400:web:abcdef1234567890',
+};
+
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
+let isFirebaseConfigured = false;
+
+try {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApps()[0];
+  }
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  isFirebaseConfigured = !firebaseConfig.apiKey.includes('SyntheticDemoApiKey');
+} catch (error) {
+  console.warn('Firebase client SDK initialization in local fallback mode:', error);
+}
+
+export { app, auth, db, storage, isFirebaseConfigured };
+
+/**
+ * Upload a complaint or resolution photo to Firebase Storage with base64 offline fallback.
+ */
+export async function uploadEvidencePhoto(
+  fileOrBase64: File | string,
+  path = 'complaints'
+): Promise<string> {
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  const filename = `${path}/${timestamp}_${randomSuffix}.jpg`;
+
+  if (storage && isFirebaseConfigured) {
+    try {
+      const storageRef = ref(storage, filename);
+      if (typeof fileOrBase64 === 'string') {
+        if (fileOrBase64.startsWith('data:')) {
+          await uploadString(storageRef, fileOrBase64, 'data_url');
+        } else {
+          await uploadString(storageRef, fileOrBase64, 'raw');
+        }
+      } else {
+        await uploadBytes(storageRef, fileOrBase64);
+      }
+      return await getDownloadURL(storageRef);
+    } catch (storageErr) {
+      console.warn('Firebase Storage upload failed, falling back to local data URL:', storageErr);
+    }
+  }
+
+  // Fallback to data URL or mock URL
+  if (typeof fileOrBase64 === 'string') {
+    return fileOrBase64;
+  }
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(fileOrBase64);
+  });
+}

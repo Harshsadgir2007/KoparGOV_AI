@@ -43,6 +43,14 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
       return true;
     });
 
+    // Sort by priority score descending (Highest MCDA score first)
+    result = [...result].sort((a, b) => {
+      // If one is resolved and other is active, active comes first in triage queue
+      if (a.status === 'RESOLVED' && b.status !== 'RESOLVED') return 1;
+      if (b.status === 'RESOLVED' && a.status !== 'RESOLVED') return -1;
+      return b.priority_score - a.priority_score;
+    });
+
     if (limit) {
       result = result.slice(0, limit);
     }
@@ -50,7 +58,7 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
   }, [issues, categoryFilter, wardFilter, priorityFilter, statusFilter, search, limit]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col min-w-0">
       {/* Table Header */}
       <div className="p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
         <div>
@@ -153,18 +161,18 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto flex-1">
-        <table className="w-full text-left text-xs border-collapse">
+      {/* Responsive Table Container with horizontal scrolling support */}
+      <div className="overflow-x-auto flex-1 w-full">
+        <table className="min-w-[680px] w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase tracking-wider font-bold text-[11px]">
-              <th className="py-3.5 px-4">Issue ID</th>
-              <th className="py-3.5 px-3">Title & Category</th>
-              <th className="py-3.5 px-3">Ward</th>
-              <th className="py-3.5 px-3 text-center">Score</th>
-              <th className="py-3.5 px-3">Priority</th>
-              <th className="py-3.5 px-3">Status</th>
-              <th className="py-3.5 px-4 text-right">Action</th>
+            <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase tracking-wider font-bold text-[11px] whitespace-nowrap">
+              <th className="py-3.5 px-4 w-24">Issue ID</th>
+              <th className="py-3.5 px-3 min-w-[180px]">Title & Category</th>
+              <th className="py-3.5 px-3 w-20">Ward</th>
+              <th className="py-3.5 px-3 w-20 text-center">Score</th>
+              <th className="py-3.5 px-3 w-28">Priority</th>
+              <th className="py-3.5 px-3 w-36">Status</th>
+              <th className="py-3.5 px-4 w-24 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -185,14 +193,14 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
                   </td>
 
                   {/* Title & Category */}
-                  <td className="py-3.5 px-3 max-w-xs">
+                  <td className="py-3.5 px-3">
                     <Link
                       to={`/issues/${issue.id}`}
-                      className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors line-clamp-1 block"
+                      className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors line-clamp-1 block max-w-[220px]"
                     >
                       {issue.title}
                     </Link>
-                    <span className="text-[10px] font-semibold text-slate-500 block">
+                    <span className="text-[10px] font-semibold text-slate-500 block truncate max-w-[220px]">
                       {issue.category}
                     </span>
                   </td>
@@ -204,7 +212,17 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
 
                   {/* Priority Score */}
                   <td className="py-3.5 px-3 font-mono font-black text-slate-900 text-center whitespace-nowrap">
-                    {issue.priority_score}
+                    <span
+                      className={`inline-block px-1.5 py-0.5 rounded font-mono font-bold ${
+                        issue.priority_level === 'CRITICAL'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : issue.priority_level === 'HIGH'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-slate-100 text-slate-800'
+                      }`}
+                    >
+                      {issue.priority_score}
+                    </span>
                   </td>
 
                   {/* Priority Level */}
@@ -220,8 +238,8 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
                   {/* Action */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
                     <Link
-                      to={`/issues/${issue.id}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 transition-colors"
+                      to={`/recommendations/${issue.id}`}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 transition-colors shadow-2xs"
                     >
                       <span>Review</span>
                       <ChevronRight className="w-3 h-3" />

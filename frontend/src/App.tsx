@@ -18,6 +18,7 @@ import { AssignmentDetailPage } from './pages/officer/AssignmentDetailPage';
 import { MapPage } from './pages/officer/MapPage';
 import { AnalyticsPage } from './pages/officer/AnalyticsPage';
 import { ScenarioSimulationPage } from './pages/officer/ScenarioSimulationPage';
+import { ContractorAccountabilityPage } from './pages/officer/ContractorAccountabilityPage';
 
 // Citizen Pages
 import { CitizenLandingPage } from './pages/citizen/CitizenLandingPage';
@@ -26,6 +27,9 @@ import { CitizenIssuesPage } from './pages/citizen/CitizenIssuesPage';
 import { CitizenTrackingPage } from './pages/citizen/CitizenTrackingPage';
 import { CitizenLeaderboardPage } from './pages/citizen/CitizenLeaderboardPage';
 import { CitizenProfilePage } from './pages/citizen/CitizenProfilePage';
+import { MobileUploadPage } from './pages/citizen/MobileUploadPage';
+
+import { ProtectedRoute } from './components/common/ProtectedRoute';
 
 // Auth Page
 import { LoginPage } from './pages/auth/LoginPage';
@@ -37,17 +41,24 @@ export function App() {
         <AuthProvider>
           <CivicProvider>
             <Routes>
-              {/* Root redirect to Officer Dashboard */}
+              {/* Root redirect to Citizen Portal or Dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-              {/* Officer Portal Routes */}
-              <Route element={<OfficerLayout />}>
+              {/* Officer Portal Routes (Protected - Officers Only) */}
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={['OFFICER']}>
+                    <OfficerLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/issues" element={<IssuesPage />} />
                 <Route path="/issues/:id" element={<IssueDetailPage />} />
                 <Route path="/recommendations" element={<RecommendationPage />} />
                 <Route path="/recommendations/:id" element={<RecommendationPage />} />
                 <Route path="/scenario" element={<ScenarioSimulationPage />} />
+                <Route path="/contractors" element={<ContractorAccountabilityPage />} />
                 <Route path="/assignments" element={<AssignmentsPage />} />
                 <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
                 <Route path="/map" element={<MapPage />} />
@@ -65,6 +76,9 @@ export function App() {
                 <Route path="leaderboard" element={<CitizenLeaderboardPage />} />
                 <Route path="profile" element={<CitizenProfilePage />} />
               </Route>
+
+              {/* Dedicated Mobile Camera Upload Bridge (Direct phone scan) */}
+              <Route path="/mobile-upload" element={<MobileUploadPage />} />
 
               {/* Authentication */}
               <Route path="/login" element={<LoginPage />} />

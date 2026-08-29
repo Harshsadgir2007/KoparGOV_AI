@@ -80,8 +80,9 @@ class ResourceOptimizer:
     def optimize_allocation(
         self,
         issues: List[CivicIssue],
-        mcda_results: List[MCDAScoreResult],
-        resources: MunicipalResources,
+        mcda_results: Optional[List[MCDAScoreResult]] = None,
+        resources: Optional[MunicipalResources] = None,
+        mcda_rankings: Optional[List[MCDAScoreResult]] = None,
     ) -> OptimizationAllocationPlan:
         """Run constraint solver to determine the optimal set of issues to address.
         
@@ -89,15 +90,15 @@ class ResourceOptimizer:
             issues: List of civic complaints to evaluate.
             mcda_results: Pre-computed deterministic MCDA scores for the issues.
             resources: Municipal resource constraints (budget, workforce, fleet, time).
+            mcda_rankings: Optional alias for mcda_results.
             
         Returns:
             OptimizationAllocationPlan detailing selected issues, deferred issues,
             total public benefit score, and detailed resource usage.
-            
-        Raises:
-            ValueError: If duplicate issue IDs exist in issues or mcda_results,
-                        or if an issue is missing its corresponding MCDA result.
         """
+        effective_mcda = mcda_results or mcda_rankings or []
+        if resources is None:
+            raise ValueError("Municipal resources must be provided.")
         # Edge Case 1 & 2: Empty issue list
         if not issues:
             return OptimizationAllocationPlan(
@@ -129,7 +130,7 @@ class ResourceOptimizer:
 
         # Integrity Check 2: Check for duplicate issue IDs in MCDA results and build map
         mcda_map: Dict[str, MCDAScoreResult] = {}
-        for result in mcda_results:
+        for result in effective_mcda:
             if result.issue_id in mcda_map:
                 raise ValueError(f"Duplicate MCDA result for issue ID: '{result.issue_id}'.")
             mcda_map[result.issue_id] = result
@@ -268,3 +269,8 @@ class ResourceOptimizer:
             total_benefit_score=total_benefit_score,
             resource_usage=resource_usage,
         )
+
+    optimize = optimize_allocation
+
+
+ResourceOptimizerService = ResourceOptimizer

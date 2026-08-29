@@ -13,7 +13,7 @@ export const INITIAL_MOCK_ISSUES: CivicIssue[] = [
     submitted_at: '2026-08-26T08:30:00Z',
     age_days: 3,
     status: 'PRIORITIZED', // Initial state: PENDING officer review
-    priority_score: 87,
+    priority_score: 92.25,
     priority_level: 'CRITICAL',
     population_affected: 1200,
     citizen_name: 'Rahul Patil',
@@ -29,11 +29,11 @@ export const INITIAL_MOCK_ISSUES: CivicIssue[] = [
     ],
     factors: {
       severity: 90,
-      urgency: 85,
-      population_affected: 95,
-      health_safety: 90,
-      location_sensitivity: 80,
-      complaint_age_days: 70,
+      urgency: 90,
+      population_affected: 1200,
+      health_safety: 85,
+      location_sensitivity: 90,
+      complaint_age_days: 3,
     },
     recommendation: {
       recommended_action: 'Deploy Hydraulic Compactor (Vehicle 2) and 2 sanitation workers for waste clearance.',

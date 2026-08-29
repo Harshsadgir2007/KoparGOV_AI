@@ -27,6 +27,7 @@ class CivicIssue(BaseModel):
     category: Optional[str] = Field(None, description="Department/category (e.g. Roads, Water, Sanitation)")
     description: Optional[str] = Field(None, description="Detailed description of the issue")
     location: Optional[str] = Field(None, description="Ward / Area / Geographic identifier")
+    ward_number: Optional[int] = Field(None, description="Municipal ward number (1-7)")
     
     # 6 MCDA Factor Inputs
     severity: Optional[float] = Field(None, description="Severity rating (0-100)")
@@ -43,11 +44,29 @@ class CivicIssue(BaseModel):
     required_time_hours: Optional[float] = Field(None, ge=0.0, description="Estimated hours needed for resolution")
 
     # Geolocation, Status & Lifecycle Timestamps (Firestore & Database Integration)
+    user_id: Optional[str] = Field(None, description="Citizen/Officer user identifier")
+    address: Optional[str] = Field(None, description="Human readable street address or landmark")
     latitude: Optional[float] = Field(None, description="Geographic latitude coordinate")
     longitude: Optional[float] = Field(None, description="Geographic longitude coordinate")
-    status: Optional[str] = Field("SUBMITTED", description="Current lifecycle status (SUBMITTED, EVALUATED, etc.)")
+    priority_score: Optional[float] = Field(None, description="Computed MCDA priority score (0-100)")
+    priority_level: Optional[str] = Field(None, description="LOW, MEDIUM, HIGH, or CRITICAL")
+    status: Optional[str] = Field("REPORTED", description="Current lifecycle status (REPORTED, PRIORITIZED, APPROVED, ASSIGNED, IN_PROGRESS, RESOLVED)")
+    before_photos: List[str] = Field(default_factory=list, description="URLs of evidence photos uploaded by citizen")
+    after_photos: List[str] = Field(default_factory=list, description="URLs of resolution verification photos")
+    citizen_name: Optional[str] = Field(None, description="Reporter name")
+    citizen_phone: Optional[str] = Field(None, description="Reporter phone number")
     created_at: Optional[str] = Field(None, description="ISO 8601 creation timestamp")
     updated_at: Optional[str] = Field(None, description="ISO 8601 last update timestamp")
+
+    @property
+    def issue_id(self) -> str:
+        """Alias for id."""
+        return self.id
+
+    @property
+    def ward(self) -> Optional[str]:
+        """Alias for location."""
+        return self.location or (f"Ward {self.ward_number}" if self.ward_number else None)
 
 
 class IssueValidationReport(BaseModel):

@@ -3,7 +3,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import cie_router, health_router, workflow_router, issues_router, resilience_router
+from app.routers import (
+    cie_router,
+    health_router,
+    workflow_router,
+    issues_router,
+    resilience_router,
+    contractors_router,
+    recommendations_router,
+    analytics_router,
+    roads_router,
+    auth_router,
+    map_router,
+    notifications_router,
+)
 
 app = FastAPI(
     title=settings.app_name,
@@ -11,33 +24,28 @@ app = FastAPI(
     description="Decision-support Civic Intelligence Engine for Municipal Authorities.",
 )
 
-# Configure CORS for frontend development and local APIs
-# Allow standard localhost and local development ports
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://localhost:4173",
-    "http://127.0.0.1:4173",
-]
-
+# Configure CORS for frontend development, mobile devices, and local network APIs
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Mount modular routers
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(cie_router)
 app.include_router(workflow_router)
 app.include_router(issues_router)
 app.include_router(resilience_router)
+app.include_router(contractors_router)
+app.include_router(recommendations_router)
+app.include_router(analytics_router)
+app.include_router(roads_router)
+app.include_router(map_router)
+app.include_router(notifications_router)
 
 
 @app.get("/", summary="Root service metadata endpoint")

@@ -21,7 +21,7 @@ export const OfficerTopbar: React.FC<OfficerTopbarProps> = ({
   onSearchChange,
 }) => {
   const { issues, refreshData } = useCivic();
-  const { user, switchRole } = useAuth();
+  const { user, switchRole, loginAsSpecificOfficer } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -171,28 +171,74 @@ export const OfficerTopbar: React.FC<OfficerTopbarProps> = ({
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-3.5 z-50 animate-in fade-in zoom-in-95 text-xs">
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3.5 z-50 animate-in fade-in zoom-in-95 text-xs">
                 <div className="pb-2.5 border-b border-slate-100">
                   <p className="font-bold text-slate-900">{user.name}</p>
                   <p className="text-[11px] text-slate-500 truncate">{user.designation}</p>
+                  <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
+                    {user.officer_role || 'CHIEF_OFFICER'}
+                  </span>
                 </div>
+
                 <div className="pt-2 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 block">
+                    Switch Officer Persona:
+                  </span>
+                  <button
+                    onClick={() => {
+                      loginAsSpecificOfficer('WARD_INCHARGE');
+                      setProfileOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-2 rounded-lg hover:bg-amber-50 text-slate-800 font-semibold cursor-pointer transition-colors"
+                  >
+                    1. Shri. Sunil Jadhav (Ward 5 In-Charge)
+                  </button>
+                  <button
+                    onClick={() => {
+                      loginAsSpecificOfficer('DEPARTMENT_OFFICER');
+                      setProfileOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-2 rounded-lg hover:bg-sky-50 text-slate-800 font-semibold cursor-pointer transition-colors"
+                  >
+                    2. Smt. Sunita More (Sanitation Head)
+                  </button>
+                  <button
+                    onClick={() => {
+                      loginAsSpecificOfficer('CHIEF_OFFICER');
+                      setProfileOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-2 rounded-lg hover:bg-emerald-50 text-slate-800 font-semibold cursor-pointer transition-colors"
+                  >
+                    3. Shri. Rajesh Kulkarni (CMO)
+                  </button>
+                  <button
+                    onClick={() => {
+                      loginAsSpecificOfficer('TAHSILDAR_OR_RELEVANT_AUTHORITY');
+                      setProfileOpen(false);
+                    }}
+                    className="w-full text-left py-1.5 px-2 rounded-lg hover:bg-purple-50 text-slate-800 font-semibold cursor-pointer transition-colors"
+                  >
+                    4. Shri. Deepak Shinde (Tahsildar)
+                  </button>
+                </div>
+
+                <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+                  <Link
+                    to="/login"
+                    onClick={() => setProfileOpen(false)}
+                    className="block py-1.5 px-2 rounded-lg hover:bg-slate-50 text-slate-700 font-semibold transition-colors"
+                  >
+                    Portal Login Page (/login)
+                  </Link>
                   <button
                     onClick={() => {
                       switchRole();
                       setProfileOpen(false);
                     }}
-                    className="w-full text-left py-2 px-2.5 rounded-lg hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer transition-colors"
+                    className="w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-50 text-slate-700 font-semibold cursor-pointer transition-colors"
                   >
-                    Switch to Citizen Mode
+                    Switch to Citizen Portal
                   </button>
-                  <Link
-                    to="/login"
-                    onClick={() => setProfileOpen(false)}
-                    className="block py-2 px-2.5 rounded-lg hover:bg-slate-50 text-slate-700 font-semibold transition-colors"
-                  >
-                    Account Switcher
-                  </Link>
                 </div>
               </div>
             )}

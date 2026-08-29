@@ -450,6 +450,38 @@ export const cieService = {
       ),
       summary: explanation?.summary || `Issue ${issue.id} evaluated as ${mcdaResult.priority_level} priority (score: ${mcdaResult.composite_score}).`,
       backend_source: source,
+      authority_routing: explanation?.authority_routing || {
+        required_authority: (mcdaResult.priority_level === 'CRITICAL' || estimatedCost > 25000)
+          ? 'CHIEF_OFFICER'
+          : (mcdaResult.priority_level === 'HIGH' || estimatedCost > 10000)
+          ? 'DEPARTMENT_OFFICER'
+          : 'WARD_INCHARGE',
+        authority_title: (mcdaResult.priority_level === 'CRITICAL' || estimatedCost > 25000)
+          ? 'Chief Municipal Officer (CMO)'
+          : (mcdaResult.priority_level === 'HIGH' || estimatedCost > 10000)
+          ? `${issue.category || 'Departmental'} Head Officer`
+          : `Ward ${issue.ward_number || 5} Field In-Charge`,
+        approval_chain: (mcdaResult.priority_level === 'CRITICAL' || estimatedCost > 25000)
+          ? [
+              { role: 'WARD_INCHARGE', title: `Ward ${issue.ward_number || 5} In-Charge (Field Review)`, status: 'APPROVED', officer_name: 'Ward Inspector' },
+              { role: 'DEPARTMENT_OFFICER', title: `${issue.category || 'Sanitation'} Department Officer`, status: 'APPROVED', officer_name: 'Sanitation Superintendent' },
+              { role: 'CHIEF_OFFICER', title: 'Chief Municipal Officer (Final Authorization)', status: 'PENDING' },
+            ]
+          : (mcdaResult.priority_level === 'HIGH' || estimatedCost > 10000)
+          ? [
+              { role: 'WARD_INCHARGE', title: `Ward ${issue.ward_number || 5} In-Charge (Field Review)`, status: 'APPROVED', officer_name: 'Ward Inspector' },
+              { role: 'DEPARTMENT_OFFICER', title: `${issue.category || 'Departmental'} Head Officer`, status: 'PENDING' },
+            ]
+          : [
+              { role: 'WARD_INCHARGE', title: `Ward ${issue.ward_number || 5} Field In-Charge`, status: 'PENDING' },
+            ],
+        routing_reasons: [
+          `Authority determination based on ${mcdaResult.priority_level} priority and resource allocation.`,
+          `Estimated cost ₹${estimatedCost.toLocaleString('en-IN')} with ${requiredWorkers} personnel required.`,
+        ],
+        expected_response_sla_hours: mcdaResult.priority_level === 'CRITICAL' ? 12 : mcdaResult.priority_level === 'HIGH' ? 24 : mcdaResult.priority_level === 'MEDIUM' ? 48 : 72,
+        is_multi_department: mcdaResult.priority_level === 'CRITICAL' || estimatedCost > 25000,
+      },
     };
   },
 
