@@ -30,6 +30,9 @@ import {
   Check,
   RefreshCw,
   Zap,
+  Video,
+  SwitchCamera,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface CategoryOption {
@@ -48,11 +51,30 @@ const CATEGORIES: CategoryOption[] = [
   { id: 'Public Health & Sanitation', label: 'Sanitation', icon: Sparkles, desc: 'Mosquito breeding, spray' },
 ];
 
+const SAMPLE_CIVIC_PHOTOS = [
+  {
+    title: 'Market Waste',
+    url: 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=800&q=80',
+    desc: 'Garbage at market',
+  },
+  {
+    title: 'Damaged Road',
+    url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=800&q=80',
+    desc: 'Potholes & cracks',
+  },
+  {
+    title: 'Water Leak',
+    url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186c5f3?auto=format&fit=crop&w=800&q=80',
+    desc: 'Pipeline rupture',
+  },
+];
+
 export const CitizenReportPage: React.FC = () => {
   const navigate = useNavigate();
   const identitySectionRef = useRef<HTMLDivElement>(null);
   const mobileCameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // User Profile
   const [profile, setProfile] = useState<CitizenProfile | null>(null);
@@ -75,7 +97,12 @@ export const CitizenReportPage: React.FC = () => {
   // Photo State
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoSource, setPhotoSource] = useState<'camera' | 'phone_sync' | 'file' | null>(null);
+  const [photoSource, setPhotoSource] = useState<'camera' | 'phone_sync' | 'webcam' | 'sample' | 'file' | null>(null);
+
+  // Live In-Browser Webcam Viewfinder State
+  const [webcamOpen, setWebcamOpen] = useState(false);
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [webcamError, setWebcamError] = useState<string | null>(null);
 
   // Phone Sync Modal State
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
@@ -89,6 +116,11 @@ export const CitizenReportPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdIssueId, setCreatedIssueId] = useState<string | null>(null);
 
+  // Determine optimal mobile link (uses actual network IP if on localhost)
+  const mobileAccessUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://10.88.240.180:5173/citizen/report`
+    : `${window.location.origin}/citizen/report`;
+
   useEffect(() => {
     async function loadProfile() {
       const p = await citizenService.getProfile();
@@ -100,6 +132,62 @@ export const CitizenReportPage: React.FC = () => {
     }
     loadProfile();
   }, []);
+
+  // Cleanup webcam stream if component unmounts
+  useEffect(() => {
+    return () => {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [webcamStream]);
+
+  // Start in-browser live webcam stream
+  const handleStartWebcam = async () => {
+    setWebcamError(null);
+    setWebcamOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      setWebcamStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.warn('Webcam permission denied or unavailable, opening file camera fallback', err);
+      setWebcamError('Unable to access device camera directly. Please use the mobile camera or file upload.');
+    }
+  };
+
+  const handleCaptureWebcamSnapshot = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth || 640;
+    canvas.height = videoRef.current.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setPhotoPreview(dataUrl);
+      setPhotoSource('webcam');
+      handleCloseWebcam();
+      if (!coords) {
+        setCoords([19.8917, 74.4789]);
+        setLocationStatus('CAPTURED');
+      }
+    }
+  };
+
+  const handleCloseWebcam = () => {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(track => track.stop());
+      setWebcamStream(null);
+    }
+    setWebcamOpen(false);
+  };
 
   // Use Browser / Device Geolocation
   const handleUseMyLocation = () => {
@@ -151,6 +239,15 @@ export const CitizenReportPage: React.FC = () => {
     }
   };
 
+  const handleSelectSamplePhoto = (url: string) => {
+    setPhotoPreview(url);
+    setPhotoSource('sample');
+    if (!coords) {
+      setCoords([19.8917, 74.4789]);
+      setLocationStatus('CAPTURED');
+    }
+  };
+
   // Simulate Instant Phone Sync (QR / Mobile Handshake Demo)
   const handleSimulatePhoneSync = () => {
     setPhoneSyncStatus('SYNCED');
@@ -159,17 +256,15 @@ export const CitizenReportPage: React.FC = () => {
       setPhotoSource('phone_sync');
       setPhoneModalOpen(false);
       setPhoneSyncStatus('WAITING');
-      // Auto-set location if not set yet
       if (!coords) {
         setCoords([19.8917, 74.4789]);
         setLocationStatus('CAPTURED');
       }
-    }, 1200);
+    }, 1000);
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/citizen/report`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(mobileAccessUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
@@ -180,7 +275,7 @@ export const CitizenReportPage: React.FC = () => {
     setSmsSent(true);
     setTimeout(() => {
       handleSimulatePhoneSync();
-    }, 1500);
+    }, 1200);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -459,7 +554,7 @@ export const CitizenReportPage: React.FC = () => {
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. PHOTO EVIDENCE WITH "UPLOAD USING PHONE" / CAMERA OPTIONS              */}
+        {/* 4. PHOTO EVIDENCE WITH "UPLOAD USING PHONE", LIVE CAMERA & DEMO SAMPLES   */}
         {/* ========================================================================= */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -467,79 +562,163 @@ export const CitizenReportPage: React.FC = () => {
               Add Photo Evidence <span className="text-slate-400 font-normal">(Optional)</span>
             </label>
             <span className="text-[10px] text-sky-800 bg-sky-50 px-2 py-0.5 rounded-full font-semibold border border-sky-200">
-              Camera / Phone Upload Ready
+              Direct Phone & Camera Capture
             </span>
           </div>
 
-          {!photoPreview ? (
-            <div className="space-y-2.5">
-              {/* Hidden file inputs for direct camera capture and standard file pick */}
-              <input
-                ref={mobileCameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={e => handlePhotoUpload(e, 'camera')}
-                className="hidden"
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={e => handlePhotoUpload(e, 'file')}
-                className="hidden"
-              />
+          {/* Hidden inputs for hardware phone camera and standard file pick */}
+          <input
+            ref={mobileCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={e => handlePhotoUpload(e, 'camera')}
+            className="hidden"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={e => handlePhotoUpload(e, 'file')}
+            className="hidden"
+          />
 
-              {/* Action Choices Grid */}
+          {!photoPreview && !webcamOpen ? (
+            <div className="space-y-3">
+              {/* Primary Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* 1. Snap Live Photo (Mobile Camera) */}
+                {/* 1. Mobile Phone Camera Trigger */}
                 <button
                   type="button"
-                  onClick={() => mobileCameraInputRef.current?.click()}
-                  className="p-3.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                  onClick={() => {
+                    // If on mobile or touch device, trigger native camera; otherwise open in-browser webcam lens
+                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                      mobileCameraInputRef.current?.click();
+                    } else {
+                      handleStartWebcam();
+                    }
+                  }}
+                  className="p-3.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-2xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
                     <Camera className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-bold text-sky-950 block">Take Photo</span>
-                  <span className="text-[10px] text-sky-700 font-medium">Use device camera</span>
+                  <span className="text-xs font-bold text-sky-950 block">Snap Live Photo</span>
+                  <span className="text-[10px] text-sky-700 font-medium">Use device / web camera</span>
                 </button>
 
-                {/* 2. Upload Using Phone (QR Code / Mobile Hand-off) */}
+                {/* 2. Upload Using Phone (QR Code / Cross-device Hand-off) */}
                 <button
                   type="button"
                   onClick={() => setPhoneModalOpen(true)}
-                  className="p-3.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                  className="p-3.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-2xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-purple-950 block">Upload via Phone</span>
-                  <span className="text-[10px] text-purple-700 font-medium">Scan QR or SMS link</span>
+                  <span className="text-[10px] text-purple-700 font-medium">Scan QR / SMS sync</span>
                 </button>
 
                 {/* 3. Browse Files / Gallery */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
+                  className="p-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center group transition-all cursor-pointer shadow-2xs"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center mb-1.5 shadow-xs group-hover:scale-105 transition-transform">
                     <Upload className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-900 block">Browse Files</span>
                   <span className="text-[10px] text-slate-500 font-medium">JPG, PNG up to 8MB</span>
                 </button>
               </div>
+
+              {/* Quick Sample Presets (For fast evaluation & demo testing) */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                  Or pick a sample demonstration photo:
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {SAMPLE_CIVIC_PHOTOS.map((sample, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectSamplePhoto(sample.url)}
+                      className="p-1.5 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded-lg flex items-center gap-2 text-left transition-all cursor-pointer"
+                    >
+                      <img src={sample.url} alt={sample.title} className="w-8 h-8 rounded object-cover shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-slate-900 block truncate">{sample.title}</span>
+                        <span className="text-[9px] text-slate-400 block truncate">{sample.desc}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : webcamOpen ? (
+            /* Live In-Browser Webcam Viewfinder */
+            <div className="relative rounded-2xl overflow-hidden border-2 border-sky-500 bg-slate-950 p-2 space-y-3 shadow-lg animate-in fade-in">
+              <div className="relative rounded-xl overflow-hidden aspect-video bg-black flex items-center justify-center">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                
+                {/* Viewfinder Overlay Grid */}
+                <div className="absolute inset-4 border border-white/40 rounded-lg pointer-events-none flex items-center justify-center">
+                  <div className="w-12 h-12 border-t-2 border-l-2 border-white absolute top-0 left-0" />
+                  <div className="w-12 h-12 border-t-2 border-r-2 border-white absolute top-0 right-0" />
+                  <div className="w-12 h-12 border-b-2 border-l-2 border-white absolute bottom-0 left-0" />
+                  <div className="w-12 h-12 border-b-2 border-r-2 border-white absolute bottom-0 right-0" />
+                  <span className="text-[10px] font-mono text-white/80 bg-black/50 px-2 py-0.5 rounded">
+                    LIVE CAMERA VIEWFINDER
+                  </span>
+                </div>
+              </div>
+
+              {webcamError && (
+                <p className="text-xs text-red-400 font-semibold px-2">{webcamError}</p>
+              )}
+
+              <div className="flex items-center justify-between gap-3 px-2 pb-1">
+                <button
+                  type="button"
+                  onClick={handleCloseWebcam}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCaptureWebcamSnapshot}
+                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Snap Photo Now</span>
+                </button>
+              </div>
             </div>
           ) : (
+            /* Attached Photo Preview */
             <div className="relative rounded-2xl overflow-hidden border border-slate-300 aspect-video max-h-52 bg-slate-900 shadow-sm">
-              <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+              <img src={photoPreview || ''} alt="Preview" className="w-full h-full object-cover" />
               
               <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold flex items-center gap-1.5 border border-slate-700">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  {photoSource === 'phone_sync' ? 'Synced from Mobile Phone' : photoSource === 'camera' ? 'Captured via Camera' : 'Photo Attached'}
+                  {photoSource === 'phone_sync'
+                    ? 'Synced from Smartphone'
+                    : photoSource === 'webcam'
+                    ? 'Captured via Device Camera'
+                    : photoSource === 'sample'
+                    ? 'Civic Sample Evidence'
+                    : 'Photo Attached'}
                 </span>
               </div>
 
@@ -835,7 +1014,6 @@ export const CitizenReportPage: React.FC = () => {
               {/* Dynamic Simulated QR SVG */}
               <div className="w-40 h-40 bg-white p-3 rounded-2xl border border-slate-300 shadow-xs flex items-center justify-center relative group">
                 <svg viewBox="0 0 100 100" className="w-full h-full">
-                  {/* Outer Frame */}
                   <rect x="5" y="5" width="30" height="30" rx="4" fill="none" stroke="#0F172A" strokeWidth="6" />
                   <rect x="13" y="13" width="14" height="14" rx="2" fill="#0284C7" />
                   
@@ -865,8 +1043,8 @@ export const CitizenReportPage: React.FC = () => {
                 <p className="text-xs font-black text-slate-900">
                   Scan QR with your Smartphone
                 </p>
-                <p className="text-[11px] text-slate-500 leading-normal max-w-xs">
-                  Point your phone's camera at the QR code to snap and sync photo evidence directly to this form.
+                <p className="text-[11px] text-slate-500 leading-normal max-w-xs font-mono">
+                  {mobileAccessUrl}
                 </p>
               </div>
 
