@@ -4,6 +4,7 @@ import { KPICard } from '../../components/common/KPICard';
 import { PriorityTable } from '../../components/dashboard/PriorityTable';
 import { KopargaonMap } from '../../components/map/KopargaonMap';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { SystemResiliencePanel } from '../../components/dashboard/SystemResiliencePanel';
 import { MOCK_KPIS } from '../../mock';
 import {
   AlertOctagon,
@@ -86,6 +87,9 @@ export const DashboardPage: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Civic Resilience & Blackout Chaos Control Panel */}
+      <SystemResiliencePanel />
 
       {/* 5 KPI CARDS ROW */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">

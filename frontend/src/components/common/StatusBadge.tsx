@@ -44,6 +44,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
       icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />,
       label: 'RESOLVED & VERIFIED',
     },
+    PENDING_RECOVERY: {
+      bg: 'bg-amber-50 text-amber-900 border-amber-300',
+      icon: <Clock className="w-3.5 h-3.5 text-amber-700 animate-pulse" aria-hidden="true" />,
+      label: 'PENDING RECOVERY (QUEUED)',
+    },
   }[status] || {
     bg: 'bg-slate-100 text-slate-700 border-slate-300',
     icon: null,

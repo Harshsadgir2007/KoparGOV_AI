@@ -20,8 +20,10 @@ import { citizenService, CitizenNotification } from '../../services/citizenServi
 import { issueService } from '../../services/issueService';
 import { recommendationService } from '../../services/recommendationService';
 import { assignmentService } from '../../services/assignmentService';
+import { resilienceService } from '../../services/resilienceService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { AlertTriangle } from 'lucide-react';
 
 export const CitizenLayout: React.FC = () => {
   const { user, switchRole } = useAuth();
@@ -29,19 +31,35 @@ export const CitizenLayout: React.FC = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<CitizenNotification[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [isBlackout, setIsBlackout] = useState(false);
 
   useEffect(() => {
     async function load() {
       const list = await citizenService.getNotifications();
       setNotifications(list);
+      try {
+        const s = await resilienceService.getStatus();
+        setIsBlackout(Boolean(s.is_blackout_active || s.system_mode === 'DEGRADED'));
+      } catch (e) {
+        // ignore connection failure
+      }
     }
     load();
+
+    const intervalId = setInterval(() => {
+      load();
+    }, 3000);
 
     const handleStateUpdate = () => {
       load();
     };
     window.addEventListener('kopargov_state_updated', handleStateUpdate);
-    return () => window.removeEventListener('kopargov_state_updated', handleStateUpdate);
+    window.addEventListener('kopargov_resilience_updated', handleStateUpdate);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('kopargov_state_updated', handleStateUpdate);
+      window.removeEventListener('kopargov_resilience_updated', handleStateUpdate);
+    };
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -61,6 +79,21 @@ export const CitizenLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-16 sm:pb-0">
+      {/* Global Degraded Mode Alert Banner */}
+      {isBlackout && (
+        <div className="bg-red-600 text-white py-2 px-4 text-xs font-bold flex items-center justify-between z-50 sticky top-0 shadow-md animate-in fade-in">
+          <div className="flex items-center gap-2 max-w-4xl">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-300 animate-bounce" />
+            <span>
+              🚨 PRIMARY STORE UNAVAILABLE — SYSTEM IN DEGRADED RESILIENCE MODE
+            </span>
+          </div>
+          <span className="text-[10px] font-mono bg-red-800 px-2 py-0.5 rounded text-amber-200">
+            COMPLAINTS QUEUED SAFELY
+          </span>
+        </div>
+      )}
+
       {/* Top Citizen Header */}
       <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">

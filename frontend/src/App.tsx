@@ -55,13 +55,15 @@ export function App() {
               </Route>
 
               {/* Citizen Portal Routes */}
-              <Route element={<CitizenLayout />}>
-                <Route path="/citizen" element={<CitizenLandingPage />} />
-                <Route path="/citizen/report" element={<CitizenReportPage />} />
-                <Route path="/citizen/issues" element={<CitizenIssuesPage />} />
-                <Route path="/citizen/issues/:id" element={<CitizenTrackingPage />} />
-                <Route path="/citizen/leaderboard" element={<CitizenLeaderboardPage />} />
-                <Route path="/citizen/profile" element={<CitizenProfilePage />} />
+              <Route path="/citizen" element={<CitizenLayout />}>
+                <Route index element={<CitizenLandingPage />} />
+                <Route path="report" element={<CitizenReportPage />} />
+                <Route path="issues" element={<CitizenIssuesPage />} />
+                <Route path="issues/:id" element={<CitizenTrackingPage />} />
+                <Route path="tracking" element={<CitizenTrackingPage />} />
+                <Route path="tracking/:id" element={<CitizenTrackingPage />} />
+                <Route path="leaderboard" element={<CitizenLeaderboardPage />} />
+                <Route path="profile" element={<CitizenProfilePage />} />
               </Route>
 
               {/* Authentication */}

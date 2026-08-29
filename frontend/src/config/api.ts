@@ -20,5 +20,14 @@ export const API_ENDPOINTS = {
   WORKFLOW_ASSIGN: (id: string) => `${API_BASE_URL}/api/workflow/${id}/assign`,
   WORKFLOW_START: (id: string) => `${API_BASE_URL}/api/workflow/${id}/start`,
   WORKFLOW_RESOLVE: (id: string) => `${API_BASE_URL}/api/workflow/${id}/resolve`,
+  RESILIENCE_STATUS: `${API_BASE_URL}/api/resilience/status`,
+  RESILIENCE_SIMULATE_BLACKOUT: `${API_BASE_URL}/api/resilience/simulate-blackout`,
+  RESILIENCE_RECOVER: `${API_BASE_URL}/api/resilience/recover`,
+  RESILIENCE_RECOVERY_REPORT: `${API_BASE_URL}/api/resilience/recovery-report`,
+  RESILIENCE_RECONCILE: (opId: string) => `${API_BASE_URL}/api/resilience/reconcile/${opId}`,
+  RESILIENCE_SNAPSHOT: `${API_BASE_URL}/api/resilience/snapshot`,
+  RESILIENCE_JOURNAL: `${API_BASE_URL}/api/resilience/journal`,
+  RESILIENCE_SNAPSHOTS: `${API_BASE_URL}/api/resilience/snapshots`,
+  RESILIENCE_RESET: `${API_BASE_URL}/api/resilience/reset`,
 };
 

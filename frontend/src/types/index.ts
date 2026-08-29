@@ -7,7 +7,8 @@ export type CivicStatus =
   | 'APPROVED'
   | 'ASSIGNED'
   | 'IN_PROGRESS'
-  | 'RESOLVED';
+  | 'RESOLVED'
+  | 'PENDING_RECOVERY';
 
 export type CivicCategory =
   | 'Garbage Accumulation'
@@ -86,6 +87,7 @@ export interface CIERecommendationDetail {
 }
 
 export * from './cie';
+export * from './resilience';
 
 export interface CIERecommendation {
   recommended_action: string;
@@ -189,6 +191,8 @@ export interface CivicIssue {
   recommendation?: CIERecommendation;
   assignment?: AssignmentDetails;
   resolution?: ResolutionDetails;
+  operation_id?: string;
+  recovery_queued?: boolean;
 }
 
 export interface MunicipalResources {

@@ -114,7 +114,7 @@ export const CitizenReportPage: React.FC = () => {
   // Form Validation & Submission State
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdIssueId, setCreatedIssueId] = useState<string | null>(null);
+  const [createdIssue, setCreatedIssue] = useState<any>(null);
 
   // Determine optimal mobile link (uses actual network IP if on localhost)
   const mobileAccessUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -156,7 +156,7 @@ export const CitizenReportPage: React.FC = () => {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Webcam permission denied or unavailable, opening file camera fallback', err);
       setWebcamError('Unable to access device camera directly. Please use the mobile camera or file upload.');
     }
@@ -189,7 +189,7 @@ export const CitizenReportPage: React.FC = () => {
     setWebcamOpen(false);
   };
 
-  // Use Browser / Device Geolocation
+  // Location Methods
   const handleUseMyLocation = () => {
     setLocationStatus('LOCATING');
     if ('geolocation' in navigator) {
@@ -321,7 +321,7 @@ export const CitizenReportPage: React.FC = () => {
       });
 
       setIsSubmitting(false);
-      setCreatedIssueId(created.id);
+      setCreatedIssue(created);
     } catch (err) {
       setIsSubmitting(false);
       setErrors({ submit: "We couldn't submit your complaint. Try Again." });
@@ -332,11 +332,75 @@ export const CitizenReportPage: React.FC = () => {
     identitySectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // SUCCESS SCREEN AFTER SUBMISSION
-  if (createdIssueId) {
+  // SUCCESS / QUEUED SCREEN AFTER SUBMISSION
+  if (createdIssue) {
     const isAnon = identityMode === 'ANONYMOUS';
     const displayedReporter = isAnon ? 'Anonymous Citizen' : (profile?.real_name || 'Rahul Patil');
+    const isQueued = createdIssue.status === 'PENDING_RECOVERY' || createdIssue.recovery_queued;
 
+    if (isQueued) {
+      return (
+        <div className="max-w-xl mx-auto bg-white rounded-2xl border border-amber-300 p-6 sm:p-8 shadow-sm text-center space-y-5 animate-in fade-in zoom-in-95 ring-2 ring-amber-400/30">
+          <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-xs border border-amber-300 animate-pulse">
+            <AlertTriangle className="w-10 h-10 stroke-[2.5]" />
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-300">
+              DEGRADED RESILIENCE MODE
+            </span>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 pt-1">
+              ⚠️ System in Recovery Mode
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-md mx-auto">
+              Your complaint has <strong>NOT</strong> been lost. It has been safely queued in the municipal operation journal and will be committed once data services are restored.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 rounded-xl border border-amber-200/80 max-w-sm mx-auto text-xs space-y-2.5 text-left font-mono">
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-sans">Complaint ID:</span>
+              <span className="font-bold text-slate-900 text-sm">{createdIssue.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-sans">Recovery Operation:</span>
+              <span className="font-bold text-sky-800">{createdIssue.operation_id || 'OP-QUEUED'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500 font-sans">Status:</span>
+              <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                PENDING RECOVERY (QUEUED)
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-sans">Category:</span>
+              <span className="font-semibold text-slate-800 font-sans">{selectedCategory}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-sans">Ward:</span>
+              <span className="font-semibold text-slate-800 font-sans">{selectedWard}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+            <button
+              onClick={() => navigate(`/citizen/issues/${createdIssue.id}`)}
+              className="w-full sm:w-auto px-6 py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer"
+            >
+              Track Queue Status &rarr;
+            </button>
+            <Link
+              to="/citizen"
+              className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
+            >
+              Return to Home
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // Normal Committed Success Screen
     return (
       <div className="max-w-xl mx-auto bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-sm text-center space-y-5 animate-in fade-in zoom-in-95">
         <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
@@ -355,7 +419,7 @@ export const CitizenReportPage: React.FC = () => {
         <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 max-w-sm mx-auto text-xs space-y-2.5 text-left">
           <div className="flex justify-between">
             <span className="text-slate-500">Complaint ID:</span>
-            <span className="font-mono font-bold text-slate-900 text-sm">{createdIssueId}</span>
+            <span className="font-mono font-bold text-slate-900 text-sm">{createdIssue.id}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Category:</span>
@@ -383,7 +447,7 @@ export const CitizenReportPage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
           <button
-            onClick={() => navigate(`/citizen/issues/${createdIssueId}`)}
+            onClick={() => navigate(`/citizen/issues/${createdIssue.id}`)}
             className="w-full sm:w-auto px-6 py-3 bg-sky-700 hover:bg-sky-800 text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer"
           >
             Track Complaint &rarr;

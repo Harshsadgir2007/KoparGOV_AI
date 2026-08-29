@@ -22,12 +22,15 @@ from app.models.workflow import (
     WorkflowRecord,
     WorkflowStatus,
 )
+from app.models.resilience import OperationType, OperationStatus
 from app.services.db_service import DatabaseService
+from app.services.resilience_service import get_resilience_service
 
 router = APIRouter(prefix="/api/workflow", tags=["Workflow"])
 
 # Service instance for persistent lifecycle state management
 db_service = DatabaseService()
+resilience_service = get_resilience_service()
 
 
 def _get_or_create_workflow(issue_id: str) -> WorkflowRecord:
@@ -91,7 +94,21 @@ async def approve_issue(
     if request.notes:
         workflow.notes = request.notes
 
-    db_service.save_workflow_record(workflow)
+    if not resilience_service.is_blackout_active():
+        db_service.save_workflow_record(workflow)
+        resilience_service.log_operation(
+            operation_type=OperationType.OFFICER_APPROVED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.COMMITTED,
+        )
+    else:
+        resilience_service.log_operation(
+            operation_type=OperationType.OFFICER_APPROVED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.PENDING_RECOVERY,
+        )
     return workflow
 
 
@@ -123,7 +140,21 @@ async def reject_issue(
     if request.reason:
         workflow.rejection_reason = request.reason
 
-    db_service.save_workflow_record(workflow)
+    if not resilience_service.is_blackout_active():
+        db_service.save_workflow_record(workflow)
+        resilience_service.log_operation(
+            operation_type=OperationType.OFFICER_REJECTED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.COMMITTED,
+        )
+    else:
+        resilience_service.log_operation(
+            operation_type=OperationType.OFFICER_REJECTED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.PENDING_RECOVERY,
+        )
     return workflow
 
 
@@ -157,7 +188,21 @@ async def assign_issue(
     if request.notes:
         workflow.notes = request.notes
 
-    db_service.save_workflow_record(workflow)
+    if not resilience_service.is_blackout_active():
+        db_service.save_workflow_record(workflow)
+        resilience_service.log_operation(
+            operation_type=OperationType.ASSIGNMENT_CREATED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.COMMITTED,
+        )
+    else:
+        resilience_service.log_operation(
+            operation_type=OperationType.ASSIGNMENT_CREATED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.PENDING_RECOVERY,
+        )
     return workflow
 
 
@@ -190,7 +235,21 @@ async def start_issue_work(
         if request.notes:
             workflow.notes = request.notes
 
-    db_service.save_workflow_record(workflow)
+    if not resilience_service.is_blackout_active():
+        db_service.save_workflow_record(workflow)
+        resilience_service.log_operation(
+            operation_type=OperationType.WORK_STARTED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.COMMITTED,
+        )
+    else:
+        resilience_service.log_operation(
+            operation_type=OperationType.WORK_STARTED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.PENDING_RECOVERY,
+        )
     return workflow
 
 
@@ -225,5 +284,19 @@ async def resolve_issue(
         if request.resolution_notes:
             workflow.resolution_notes = request.resolution_notes
 
-    db_service.save_workflow_record(workflow)
+    if not resilience_service.is_blackout_active():
+        db_service.save_workflow_record(workflow)
+        resilience_service.log_operation(
+            operation_type=OperationType.RESOLUTION_UPDATED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.COMMITTED,
+        )
+    else:
+        resilience_service.log_operation(
+            operation_type=OperationType.RESOLUTION_UPDATED,
+            entity_id=issue_id,
+            payload=workflow.model_dump(),
+            status=OperationStatus.PENDING_RECOVERY,
+        )
     return workflow

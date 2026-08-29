@@ -36,6 +36,19 @@ from .scenario import (
     ResourceConstraintDelta,
     CIEScenarioResponse,
 )
+from .resilience import (
+    OperationType,
+    OperationStatus,
+    SystemMode,
+    OperationRecord,
+    SnapshotRecord,
+    ConflictItem,
+    RecoveryStep,
+    RecoveryReport,
+    ResilienceStatusResponse,
+    ReconciliationDecision,
+    ReconciliationRequest,
+)
 
 __all__ = [
     "PriorityLevel",
@@ -64,4 +77,15 @@ __all__ = [
     "ImpactComparison",
     "ResourceConstraintDelta",
     "CIEScenarioResponse",
+    "OperationType",
+    "OperationStatus",
+    "SystemMode",
+    "OperationRecord",
+    "SnapshotRecord",
+    "ConflictItem",
+    "RecoveryStep",
+    "RecoveryReport",
+    "ResilienceStatusResponse",
+    "ReconciliationDecision",
+    "ReconciliationRequest",
 ]

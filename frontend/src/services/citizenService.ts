@@ -303,7 +303,11 @@ export const citizenService = {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data?.cie_result?.mcda_rankings?.length) {
+        if (data.status === 'PENDING_RECOVERY') {
+          newIssue.status = 'PENDING_RECOVERY';
+          newIssue.operation_id = data.operation_id;
+          newIssue.recovery_queued = true;
+        } else if (data?.cie_result?.mcda_rankings?.length) {
           const matchingRank = data.cie_result.mcda_rankings.find((r: any) => r.issue_id === newId);
           if (matchingRank) {
             newIssue.priority_score = matchingRank.composite_score;
@@ -318,15 +322,18 @@ export const citizenService = {
     allIssues.unshift(newIssue);
     localStorage.setItem('kopargov_unified_issues_v2', JSON.stringify(allIssues));
     window.dispatchEvent(new Event('kopargov_state_updated'));
-
+    window.dispatchEvent(new Event('kopargov_resilience_updated'));
 
     // Create confirmation notification
     const notifications = loadNotifications();
+    const isQueued = newIssue.status === 'PENDING_RECOVERY';
     notifications.unshift({
       id: `NOTIF-${Date.now()}`,
       issue_id: newId,
-      title: 'Complaint Received',
-      message: `Your complaint ${newId} has been successfully submitted as ${reporterDisplayName}.`,
+      title: isQueued ? '⚠️ Complaint Queued (Degraded Mode)' : 'Complaint Received',
+      message: isQueued
+        ? `Your complaint ${newId} has been safely queued in the resilience operation journal (Op #${newIssue.operation_id || 'OP-PENDING'}). It will be committed once data services are restored.`
+        : `Your complaint ${newId} has been successfully submitted as ${reporterDisplayName}.`,
       timestamp: new Date().toISOString(),
       type: 'INFO',
       read: false,

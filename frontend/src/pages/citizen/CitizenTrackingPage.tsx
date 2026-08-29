@@ -52,12 +52,17 @@ export const CitizenTrackingPage: React.FC = () => {
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
       if (id) {
-        setLoading(true);
         const item = await citizenService.getIssue(id);
         if (item) setIssue(item);
-        setLoading(false);
+      } else {
+        const myIssues = await citizenService.getMyIssues();
+        if (myIssues.length > 0) {
+          setIssue(myIssues[0]);
+        }
       }
+      setLoading(false);
     }
     load();
   }, [id]);
@@ -76,7 +81,11 @@ export const CitizenTrackingPage: React.FC = () => {
         <AlertOctagon className="w-12 h-12 text-slate-400 mx-auto" />
         <h2 className="text-lg font-bold text-slate-900">Complaint Not Found</h2>
         <p className="text-xs text-slate-500">
-          The complaint ID <strong className="font-mono">{id}</strong> does not exist in our database.
+          {id ? (
+            <>The complaint ID <strong className="font-mono">{id}</strong> does not exist in our database.</>
+          ) : (
+            <>No complaints found to track. Submit a new report to start tracking.</>
+          )}
         </p>
         <Link
           to="/citizen/issues"
@@ -90,11 +99,12 @@ export const CitizenTrackingPage: React.FC = () => {
   }
 
   // 14. Citizen-Friendly Status Stages
+  const isPendingRecovery = issue.status === 'PENDING_RECOVERY';
   const stages = [
     { label: 'Complaint Submitted', done: true, desc: 'Logged with Kopargaon Municipal Council' },
-    { label: 'Information Validated', done: true, desc: 'Civic category & ward verified' },
-    { label: 'Priority Assessed', done: true, desc: 'CIE multi-criteria urgency evaluation' },
-    { label: 'Officer Approved', done: issue.status !== 'REPORTED', desc: 'Municipal officer authorization' },
+    { label: 'Information Validated', done: !isPendingRecovery, desc: 'Civic category & ward verified' },
+    { label: 'Priority Assessed', done: !isPendingRecovery, desc: 'CIE multi-criteria urgency evaluation' },
+    { label: 'Officer Approved', done: ['APPROVED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'].includes(issue.status), desc: 'Municipal officer authorization' },
     { label: 'Team Assigned', done: ['ASSIGNED', 'IN_PROGRESS', 'RESOLVED'].includes(issue.status), desc: 'Sanitation squad & vehicle dispatched' },
     { label: 'Work In Progress', done: ['IN_PROGRESS', 'RESOLVED'].includes(issue.status), desc: 'Ground crew active on site' },
     { label: 'Resolved', done: issue.status === 'RESOLVED', desc: 'Verified public closure' },
@@ -102,6 +112,19 @@ export const CitizenTrackingPage: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {/* Queued in Recovery Mode Notice */}
+      {isPendingRecovery && (
+        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-300 text-xs text-amber-900 space-y-1.5 animate-pulse">
+          <div className="flex items-center gap-2 font-black">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>QUEUED IN RECOVERY OPERATION JOURNAL (Op #{issue.operation_id || 'OP-QUEUED'})</span>
+          </div>
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            This complaint was received while municipal primary data stores were in degraded resilience mode. It has been safely recorded in immutable append-only memory and will be committed when data services are restored.
+          </p>
+        </div>
+      )}
+
       {/* 13. Complaint Header */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center justify-between gap-2">
