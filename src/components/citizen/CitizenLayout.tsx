@@ -62,33 +62,36 @@ export const CitizenLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans pb-16 sm:pb-0">
       {/* Top Citizen Header */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          <Link to="/citizen" className="flex items-center gap-2.5">
+      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <Link to="/citizen" className="flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-xs">
               <Building2 className="w-4.5 h-4.5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm sm:text-base tracking-tight">KoparGov AI</span>
-                <span className="text-[10px] bg-sky-500/20 text-sky-300 font-semibold px-1.5 py-0.2 rounded border border-sky-400/30">
+                <span className="font-black text-sm sm:text-base tracking-tight whitespace-nowrap">
+                  KoparGov AI
+                </span>
+                <span className="text-[10px] bg-sky-500/20 text-sky-300 font-bold px-1.5 py-0.2 rounded border border-sky-400/30">
                   Citizen
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 leading-none hidden sm:block mt-0.5">
+              <p className="text-[10px] text-slate-400 leading-none hidden md:block mt-0.5 whitespace-nowrap">
                 Kopargaon Municipal Public Services
               </p>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden sm:flex items-center gap-2 text-xs font-medium">
+          <nav className="hidden sm:flex items-center gap-1.5 md:gap-2 text-xs font-semibold shrink-0">
             <NavLink
               to="/citizen"
               end
               className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white'
+                `px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
@@ -98,10 +101,10 @@ export const CitizenLayout: React.FC = () => {
             <NavLink
               to="/citizen/report"
               className={({ isActive }) =>
-                `inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg font-bold transition-colors ${
+                `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap shadow-xs ${
                   isActive
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-sky-900/40 text-sky-200 hover:bg-sky-800/60'
+                    ? 'bg-sky-600 text-white ring-1 ring-sky-400'
+                    : 'bg-sky-700 hover:bg-sky-600 text-white'
                 }`
               }
             >
@@ -112,8 +115,8 @@ export const CitizenLayout: React.FC = () => {
             <NavLink
               to="/citizen/issues"
               className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white'
+                `px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
@@ -123,8 +126,8 @@ export const CitizenLayout: React.FC = () => {
             <NavLink
               to="/citizen/leaderboard"
               className={({ isActive }) =>
-                `inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-slate-800 text-amber-300 font-bold' : 'text-slate-300 hover:text-white'
+                `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                  isActive ? 'bg-slate-800 text-amber-300 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
@@ -135,8 +138,8 @@ export const CitizenLayout: React.FC = () => {
             <NavLink
               to="/citizen/profile"
               className={({ isActive }) =>
-                `inline-flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${
-                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white'
+                `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                  isActive ? 'bg-slate-800 text-white font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
@@ -147,7 +150,7 @@ export const CitizenLayout: React.FC = () => {
             {/* Notifications Button */}
             <button
               onClick={() => setNotifOpen(true)}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 relative cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 relative cursor-pointer ml-1"
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -170,7 +173,7 @@ export const CitizenLayout: React.FC = () => {
 
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-200 px-2 py-1 rounded text-[11px] font-medium"
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-slate-800 whitespace-nowrap transition-colors"
             >
               <span>Officer Portal</span>
               <ArrowRight className="w-3 h-3" />
@@ -208,7 +211,7 @@ export const CitizenLayout: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6">
         <Outlet />
       </main>
 
