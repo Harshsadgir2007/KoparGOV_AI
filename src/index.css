@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-primary: #0F172A;
+    --color-primary-light: #1E293B;
+    --color-secondary: #334155;
+    --color-accent: #0284C7;
+    --color-accent-dark: #0369A1;
+    --color-background: #F8FAFC;
+    --color-surface: #FFFFFF;
+    --color-border: #E2E8F0;
+    --color-border-dark: #CBD5E1;
+    --color-text-main: #020617;
+    --color-text-muted: #64748B;
+    --color-text-subtle: #94A3B8;
+
+    /* Priority Color Tokens */
+    --priority-critical: #DC2626;
+    --priority-critical-bg: #FEF2F2;
+    --priority-critical-border: #FECACA;
+    --priority-critical-text: #991B1B;
+
+    --priority-high: #EA580C;
+    --priority-high-bg: #FFF7ED;
+    --priority-high-border: #FED7AA;
+    --priority-high-text: #9A3412;
+
+    --priority-medium: #D97706;
+    --priority-medium-bg: #FFFBEB;
+    --priority-medium-border: #FDE68A;
+    --priority-medium-text: #92400E;
+
+    --priority-low: #16A34A;
+    --priority-low-bg: #F0FDF4;
+    --priority-low-border: #BBF7D0;
+    --priority-low-text: #166534;
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-civic: 'Atkinson Hyperlegible', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-background);
+    color: var(--color-text-main);
+    overflow-x: hidden;
+  }
+
+  /* Accessibility Focus Rings */
+  *:focus-visible {
+    outline: 2px solid #0284C7;
+    outline-offset: 2px;
+  }
+}
+
+/* Custom Civic & Leaflet Styles */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5rem;
+  z-index: 10;
+  font-family: var(--font-sans);
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #E2E8F0;
+  padding: 4px;
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px;
+  line-height: 1.4;
+}
+
+/* Custom Scrollbar for tabular and dashboard sections */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Print Styles for Official Government Documentation */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+}

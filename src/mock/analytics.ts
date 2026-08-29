@@ -1,0 +1,48 @@
+import { AnalyticsOverview } from '../types';
+
+export const INITIAL_MOCK_ANALYTICS: AnalyticsOverview = {
+  total_issues: 128,
+  critical_issues: 18,
+  high_priority_issues: 34,
+  pending_approvals: 6,
+  active_assignments: 12,
+  resolved_issues: 92,
+  critical_resolved: 15,
+  avg_response_time_hours: 18,
+  population_benefited: 12450,
+  budget_utilized: 30240,
+  budget_total: 42000,
+  worker_utilization_pct: 80,
+  vehicle_utilization_pct: 67,
+  category_distribution: [
+    { category: 'Garbage Accumulation', count: 38, critical: 8 },
+    { category: 'Water Supply & Pipeline', count: 25, critical: 4 },
+    { category: 'Drainage & Sewage', count: 21, critical: 3 },
+    { category: 'Potholes & Road Damage', count: 18, critical: 2 },
+    { category: 'Streetlight Outage', count: 14, critical: 0 },
+    { category: 'Public Health & Sanitation', count: 12, critical: 1 },
+  ],
+  ward_distribution: [
+    { ward: 'Ward 1', issues: 12, resolved: 9 },
+    { ward: 'Ward 2', issues: 17, resolved: 13 },
+    { ward: 'Ward 3', issues: 23, resolved: 18 },
+    { ward: 'Ward 4', issues: 14, resolved: 10 },
+    { ward: 'Ward 5', issues: 28, resolved: 21 },
+    { ward: 'Ward 6', issues: 15, resolved: 11 },
+    { ward: 'Ward 7', issues: 19, resolved: 10 },
+  ],
+  priority_distribution: [
+    { level: 'CRITICAL', count: 18, color: '#DC2626' },
+    { level: 'HIGH', count: 34, color: '#EA580C' },
+    { level: 'MEDIUM', count: 46, color: '#D97706' },
+    { level: 'LOW', count: 30, color: '#16A34A' },
+  ],
+  resolution_trends: [
+    { date: 'Aug 24', reported: 12, resolved: 8 },
+    { date: 'Aug 25', reported: 14, resolved: 11 },
+    { date: 'Aug 26', reported: 10, resolved: 14 },
+    { date: 'Aug 27', reported: 15, resolved: 16 },
+    { date: 'Aug 28', reported: 13, resolved: 19 },
+    { date: 'Aug 29', reported: 18, resolved: 24 },
+  ],
+};

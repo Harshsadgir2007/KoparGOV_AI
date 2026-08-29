@@ -1,9 +1,20 @@
-# Byte-compiled / optimized / DLL files
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Python / Backend
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Pytest / Coverage
 .pytest_cache/
 .coverage
 htmlcov/
@@ -17,13 +28,15 @@ ENV/
 *.json.secret
 serviceAccountKey*.json
 
-# IDEs
+# IDE & OS files
+.vscode/*
+!.vscode/extensions.json
 .idea/
-.vscode/
-*.swp
-*.swo
-
-# OS files
+.DS_Store
 Thumbs.db
 Desktop.ini
-.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
