@@ -44,7 +44,10 @@ function saveStoredResources(res: MunicipalResources) {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+import { API_BASE_URL } from '../../config/api';
+import { cieService } from '../cieService';
+
+export { cieService };
 
 export const api = {
   async getIssues(filters?: {

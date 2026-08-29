@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CivicIssue, MunicipalResources, AnalyticsOverview, AssignmentDetails, ResolutionDetails } from '../types';
 import { api } from '../services/api';
+import { cieService, transformCivicIssueToBackend, transformResourcesToBackend } from '../services/cieService';
 import { useToast } from './ToastContext';
 
 interface CivicContextType {
@@ -36,6 +37,42 @@ export const CivicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         api.getResources(),
         api.getAnalytics(),
       ]);
+
+      // Enrich issues with real CIE MCDA evaluation (FastAPI or high-fidelity fallback)
+      if (issuesData.length > 0) {
+        try {
+          const { data: cieResult } = await cieService.evaluateCIE({
+            issues: issuesData.map(transformCivicIssueToBackend),
+            resources: transformResourcesToBackend(resData),
+          });
+
+          if (cieResult?.mcda_rankings?.length) {
+            const rankingMap = new Map(cieResult.mcda_rankings.map(r => [r.issue_id, r]));
+
+            issuesData.forEach(issue => {
+              const r = rankingMap.get(issue.id);
+              if (r) {
+                issue.priority_score = r.composite_score;
+                issue.priority_level = r.priority_level;
+                if (r.factor_scores?.normalized_severity !== undefined) {
+                  issue.factors = {
+                    severity: r.factor_scores.normalized_severity,
+                    urgency: r.factor_scores.normalized_urgency,
+                    population_affected: issue.population_affected,
+                    health_safety: r.factor_scores.normalized_health_safety_impact,
+                    location_sensitivity: r.factor_scores.normalized_location_sensitivity,
+                    complaint_age_days: issue.age_days,
+                  };
+                }
+              }
+            });
+            issuesData.sort((a, b) => b.priority_score - a.priority_score);
+          }
+        } catch (e) {
+          console.warn('CIE batch evaluation fallback used:', e);
+        }
+      }
+
       setIssues(issuesData);
       setResources(resData);
       setAnalytics(analyticsData);

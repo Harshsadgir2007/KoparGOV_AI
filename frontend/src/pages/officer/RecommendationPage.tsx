@@ -159,6 +159,20 @@ export const RecommendationPage: React.FC = () => {
             <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
               {recommendation.category}
             </span>
+            {recommendation.rank !== undefined && (
+              <span className="font-mono text-xs font-bold text-sky-900 bg-sky-100 px-2 py-0.5 rounded border border-sky-200">
+                Queue Rank #{recommendation.rank}
+              </span>
+            )}
+            {recommendation.recommendation_status && (
+              <span className={`text-xs font-bold px-2 py-0.5 rounded border ${
+                recommendation.recommendation_status === 'RECOMMENDED'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-300'
+              }`}>
+                {recommendation.recommendation_status === 'RECOMMENDED' ? '✓ OR-Tools Selected' : '⏸ OR-Tools Deferred'}
+              </span>
+            )}
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             {recommendation.issue_title}

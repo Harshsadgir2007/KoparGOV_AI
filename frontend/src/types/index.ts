@@ -77,7 +77,15 @@ export interface CIERecommendationDetail {
   alternatives: CIEAlternativeOption[];
   approved_by?: string;
   approved_at?: string;
+  rank?: number;
+  recommendation_status?: 'RECOMMENDED' | 'DEFERRED' | string;
+  is_recommended_for_allocation?: boolean;
+  allocation_rationale?: string;
+  summary?: string;
+  backend_source?: 'LIVE_FASTAPI' | 'LOCAL_MOCK_FALLBACK';
 }
+
+export * from './cie';
 
 export interface CIERecommendation {
   recommended_action: string;

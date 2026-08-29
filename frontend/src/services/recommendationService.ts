@@ -1,6 +1,7 @@
 import { CIERecommendationDetail } from '../types';
 import { INITIAL_MOCK_RECOMMENDATIONS } from '../mock/recommendations';
 import { issueService } from './issueService';
+import { cieService } from './cieService';
 
 const RECOMMENDATIONS_STORAGE_KEY = 'kopargov_unified_recommendations_v2';
 
@@ -27,62 +28,34 @@ function saveRecommendations(data: Record<string, CIERecommendationDetail>) {
 export const recommendationService = {
   async getRecommendation(issueId: string): Promise<CIERecommendationDetail | undefined> {
     const cleanId = issueId.toUpperCase();
-    const data = loadRecommendations();
-    let rec = data[cleanId];
+    const storedData = loadRecommendations();
+    const storedRec = storedData[cleanId];
 
-    // Synchronize with shared issue state
+    // Synchronize with shared issue state and evaluate via real CIE engine
     const issue = await issueService.getIssue(cleanId);
-    if (issue) {
-      if (!rec) {
-        rec = {
-          issue_id: issue.id,
-          issue_title: issue.title,
-          ward: issue.ward,
-          category: issue.category,
-          status: issue.status,
-          priority_score: issue.priority_score,
-          priority_level: issue.priority_level,
-          factors: issue.factors,
-          recommended_action: {
-            headline: issue.recommendation?.recommended_action || 'Deploy rapid municipal response squad',
-            vehicle: issue.recommendation?.vehicle_type || 'Vehicle 2 (Hydraulic Compactor)',
-            workers: issue.recommendation?.required_workers || 2,
-            estimated_cost: issue.recommendation?.estimated_cost || 8000,
-            estimated_time: '2 hours',
-          },
-          reasons: issue.recommendation?.rationales || [
-            'High public health and safety impact',
-            'Affects high density zone',
-            'Fits available budget and personnel resources',
-          ],
-          resource_availability: {
-            budget_available: 42000,
-            budget_required: 8000,
-            budget_remaining: 34000,
-            workers_available: 18,
-            workers_required: 2,
-            workers_remaining: 16,
-            vehicles_available: 6,
-            vehicles_required: 1,
-            vehicles_remaining: 5,
-          },
-          alternatives: [
-            {
-              id: 'OPT-A',
-              name: 'Option A — Recommended Allocation',
-              action: 'Deploy Vehicle 2 + 2 Workers',
-              cost: 8000,
-              benefit: 'High',
-              resource_impact: 'Low',
-              is_recommended: true,
-            },
-          ],
-        };
-      }
-      rec.status = issue.status;
+    if (!issue) {
+      return storedRec;
     }
 
-    return rec;
+    const allIssues = await issueService.getIssues();
+
+    // Call CIE evaluation service (calls FastAPI POST /api/cie/evaluate with fallback)
+    const evaluated = await cieService.evaluateSingleIssue(issue, allIssues);
+
+    // If an officer has already approved or modified the decision, preserve that lifecycle status
+    if (storedRec?.status === 'APPROVED') {
+      evaluated.status = 'APPROVED';
+      evaluated.approved_by = storedRec.approved_by;
+      evaluated.approved_at = storedRec.approved_at;
+    } else {
+      evaluated.status = issue.status;
+    }
+
+    // Persist evaluation
+    storedData[cleanId] = evaluated;
+    saveRecommendations(storedData);
+
+    return evaluated;
   },
 
   async approveRecommendation(
