@@ -10,6 +10,8 @@ import {
   MCDAScoreResult,
   IssueExplanation,
   OptimizationAllocationPlan,
+  CIEScenarioRequest,
+  CIEScenarioResponse,
 } from '../types';
 
 // In-memory evaluation cache to avoid duplicate API requests during renders
@@ -450,4 +452,126 @@ export const cieService = {
       backend_source: source,
     };
   },
+
+  async evaluateScenario(request: CIEScenarioRequest): Promise<CIEScenarioResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.CIE_SCENARIO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      const data: CIEScenarioResponse = await response.json();
+      return data;
+    } catch (err: any) {
+      console.warn(`CIE Scenario Backend endpoint (${API_ENDPOINTS.CIE_SCENARIO}) unreachable: ${err.message}. Using fallback scenario engine.`);
+      return createLocalFallbackScenarioResponse(request);
+    }
+  },
 };
+
+function createLocalFallbackScenarioResponse(request: CIEScenarioRequest): CIEScenarioResponse {
+  const { issues, baseline_resources, scenario_resources } = request;
+
+  // 1. Run local baseline CIE pipeline
+  const baselinePipeline = createLocalFallbackPipelineResponse(
+    issues,
+    baseline_resources
+  );
+
+  // 2. Run local scenario CIE pipeline (MCDA scores remain identical)
+  const scenarioPipeline = createLocalFallbackPipelineResponse(
+    issues,
+    scenario_resources
+  );
+
+  const baselineSelected = baselinePipeline.allocation_plan?.selected_issue_ids || [];
+  const scenarioSelected = scenarioPipeline.allocation_plan?.selected_issue_ids || [];
+  const baselineDeferred = baselinePipeline.allocation_plan?.deferred_issue_ids || [];
+  const scenarioDeferred = scenarioPipeline.allocation_plan?.deferred_issue_ids || [];
+
+  const newlySelected = scenarioSelected.filter(id => !baselineSelected.includes(id));
+  const newlyDeferred = baselineSelected.filter(id => !scenarioSelected.includes(id));
+  const unchangedSelected = baselineSelected.filter(id => scenarioSelected.includes(id));
+  const unchangedDeferred = baselineDeferred.filter(id => scenarioDeferred.includes(id));
+  const unchangedAll = [...unchangedSelected, ...unchangedDeferred];
+
+  const baselineBenefit = baselinePipeline.allocation_plan?.total_benefit_score || 0;
+  const scenarioBenefit = scenarioPipeline.allocation_plan?.total_benefit_score || 0;
+
+  const budgetDelta = scenario_resources.budget - baseline_resources.budget;
+  const workersDelta = scenario_resources.workers - baseline_resources.workers;
+  const vehiclesDelta = scenario_resources.vehicles - baseline_resources.vehicles;
+  const timeDelta = (scenario_resources.time_capacity_hours || 40) - (baseline_resources.time_capacity_hours || 40);
+
+  const explanations: string[] = [
+    `Resource constraints modified: Budget: ₹${baseline_resources.budget.toLocaleString('en-IN')} → ₹${scenario_resources.budget.toLocaleString('en-IN')} (Δ ${budgetDelta >= 0 ? '+' : ''}₹${budgetDelta.toLocaleString('en-IN')}), Workers: ${baseline_resources.workers} → ${scenario_resources.workers} (Δ ${workersDelta >= 0 ? '+' : ''}${workersDelta}), Vehicles: ${baseline_resources.vehicles} → ${scenario_resources.vehicles} (Δ ${vehiclesDelta >= 0 ? '+' : ''}${vehiclesDelta}).`,
+    `Total public benefit score changed from ${baselineBenefit.toFixed(2)} to ${scenarioBenefit.toFixed(2)} (Δ ${(scenarioBenefit - baselineBenefit).toFixed(2)}). Selected issues changed from ${baselineSelected.length} to ${scenarioSelected.length} (Δ ${scenarioSelected.length - baselineSelected.length}).`,
+  ];
+
+  if (newlySelected.length > 0) {
+    explanations.push(`Newly selected under scenario capacity: ${newlySelected.join(', ')}.`);
+  }
+  if (newlyDeferred.length > 0) {
+    explanations.push(`Newly deferred due to tighter resource limits: ${newlyDeferred.join(', ')}.`);
+  }
+  explanations.push('Underlying MCDA priority scores and rankings remained strictly unchanged; only resource-constrained optimal selection was recomputed.');
+
+  return {
+    mcda_rankings: baselinePipeline.mcda_rankings,
+    baseline_plan: baselinePipeline.allocation_plan || {
+      selected_issue_ids: [],
+      deferred_issue_ids: [],
+      total_benefit_score: 0,
+      resource_usage: {
+        allocated_budget: 0,
+        allocated_workers: 0,
+        allocated_vehicles: 0,
+        remaining_budget: baseline_resources.budget,
+        remaining_workers: baseline_resources.workers,
+        remaining_vehicles: baseline_resources.vehicles,
+      },
+    },
+    scenario_plan: scenarioPipeline.allocation_plan || {
+      selected_issue_ids: [],
+      deferred_issue_ids: [],
+      total_benefit_score: 0,
+      resource_usage: {
+        allocated_budget: 0,
+        allocated_workers: 0,
+        allocated_vehicles: 0,
+        remaining_budget: scenario_resources.budget,
+        remaining_workers: scenario_resources.workers,
+        remaining_vehicles: scenario_resources.vehicles,
+      },
+    },
+    allocation_diff: {
+      newly_selected_issue_ids: newlySelected,
+      newly_deferred_issue_ids: newlyDeferred,
+      unchanged_selected_issue_ids: unchangedSelected,
+      unchanged_deferred_issue_ids: unchangedDeferred,
+      unchanged_issue_ids: unchangedAll,
+    },
+    impact_comparison: {
+      baseline_total_benefit: baselineBenefit,
+      scenario_total_benefit: scenarioBenefit,
+      benefit_delta: scenarioBenefit - baselineBenefit,
+      baseline_selected_count: baselineSelected.length,
+      scenario_selected_count: scenarioSelected.length,
+      selected_count_delta: scenarioSelected.length - baselineSelected.length,
+    },
+    resource_delta: {
+      budget_delta: budgetDelta,
+      workers_delta: workersDelta,
+      vehicles_delta: vehiclesDelta,
+      time_capacity_hours_delta: timeDelta,
+    },
+    explanations,
+    status: 'SUCCESS',
+  };
+}
+

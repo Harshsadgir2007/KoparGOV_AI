@@ -241,13 +241,24 @@ class DatabaseService:
         Returns:
             The target issue ID.
         """
-        workflow.updated_at = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        workflow.updated_at = now_iso
         doc_data = workflow.model_dump()
 
         if self._using_mock:
             self._mock_db["workflow"][workflow.issue_id] = doc_data
+            if workflow.issue_id in self._mock_db["issues"]:
+                self._mock_db["issues"][workflow.issue_id]["status"] = workflow.status
+                self._mock_db["issues"][workflow.issue_id]["updated_at"] = now_iso
         else:
             self.client.collection("workflow").document(workflow.issue_id).set(doc_data)
+            try:
+                self.client.collection("issues").document(workflow.issue_id).update({
+                    "status": workflow.status,
+                    "updated_at": now_iso,
+                })
+            except Exception:
+                pass
 
         return workflow.issue_id
 

@@ -17,6 +17,7 @@ import { AssignmentsPage } from './pages/officer/AssignmentsPage';
 import { AssignmentDetailPage } from './pages/officer/AssignmentDetailPage';
 import { MapPage } from './pages/officer/MapPage';
 import { AnalyticsPage } from './pages/officer/AnalyticsPage';
+import { ScenarioSimulationPage } from './pages/officer/ScenarioSimulationPage';
 
 // Citizen Pages
 import { CitizenLandingPage } from './pages/citizen/CitizenLandingPage';
@@ -46,6 +47,7 @@ export function App() {
                 <Route path="/issues/:id" element={<IssueDetailPage />} />
                 <Route path="/recommendations" element={<RecommendationPage />} />
                 <Route path="/recommendations/:id" element={<RecommendationPage />} />
+                <Route path="/scenario" element={<ScenarioSimulationPage />} />
                 <Route path="/assignments" element={<AssignmentsPage />} />
                 <Route path="/assignments/:id" element={<AssignmentDetailPage />} />
                 <Route path="/map" element={<MapPage />} />

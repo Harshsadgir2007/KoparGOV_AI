@@ -7,6 +7,7 @@ import {
   Truck,
   MapPin,
   BarChart3,
+  Sliders,
   RotateCcw,
   Users,
   Building2,
@@ -47,6 +48,14 @@ export const OfficerSidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }
       badge: pendingRecsCount > 0 ? `${pendingRecsCount} Pending` : undefined,
       badgeColor: 'bg-sky-500/20 text-sky-300 border border-sky-400/30',
       activeBadgeColor: 'bg-white text-sky-900',
+    },
+    {
+      name: 'What-If Simulator',
+      href: '/scenario',
+      icon: Sliders,
+      badge: 'CIE Lab',
+      badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
+      activeBadgeColor: 'bg-indigo-100 text-indigo-900',
     },
     {
       name: 'Resource Assignments',

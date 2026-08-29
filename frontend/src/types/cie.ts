@@ -114,3 +114,45 @@ export interface CIEPipelineResponse {
   explanations: IssueExplanation[];
   status: string;
 }
+
+export interface CIEScenarioRequest {
+  issues: CIEIssuePayload[];
+  baseline_resources: CIEResourcesPayload;
+  scenario_resources: CIEResourcesPayload;
+}
+
+export interface AllocationDiff {
+  newly_selected_issue_ids: string[];
+  newly_deferred_issue_ids: string[];
+  unchanged_selected_issue_ids: string[];
+  unchanged_deferred_issue_ids: string[];
+  unchanged_issue_ids: string[];
+}
+
+export interface ImpactComparison {
+  baseline_total_benefit: number;
+  scenario_total_benefit: number;
+  benefit_delta: number;
+  baseline_selected_count: number;
+  scenario_selected_count: number;
+  selected_count_delta: number;
+}
+
+export interface ResourceConstraintDelta {
+  budget_delta: number;
+  workers_delta: number;
+  vehicles_delta: number;
+  time_capacity_hours_delta?: number;
+}
+
+export interface CIEScenarioResponse {
+  mcda_rankings: MCDAScoreResult[];
+  baseline_plan: OptimizationAllocationPlan;
+  scenario_plan: OptimizationAllocationPlan;
+  allocation_diff: AllocationDiff;
+  impact_comparison: ImpactComparison;
+  resource_delta: ResourceConstraintDelta;
+  explanations: string[];
+  status: string;
+}
+
