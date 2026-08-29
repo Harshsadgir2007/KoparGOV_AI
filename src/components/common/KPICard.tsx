@@ -6,7 +6,7 @@ interface KPICardProps {
   value: string | number;
   subValue?: string;
   badge?: string;
-  badgeType?: 'danger' | 'warning' | 'info' | 'success' | 'neutral';
+  badgeType?: 'danger' | 'warning' | 'info' | 'success' | 'neutral' | 'purple';
   icon: LucideIcon;
   iconColor?: string;
   iconBg?: string;
@@ -20,15 +20,16 @@ export const KPICard: React.FC<KPICardProps> = ({
   badge,
   badgeType = 'neutral',
   icon: Icon,
-  iconColor = 'text-slate-700',
-  iconBg = 'bg-slate-100',
+  iconColor = 'text-sky-700',
+  iconBg = 'bg-sky-50',
   onClick,
 }) => {
-  const badgeColors = {
-    danger: 'bg-red-100 text-red-800 border-red-200',
-    warning: 'bg-orange-100 text-orange-800 border-orange-200',
-    info: 'bg-sky-100 text-sky-800 border-sky-200',
-    success: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  const badgeStyles = {
+    danger: 'bg-red-50 text-red-700 border-red-200/80',
+    warning: 'bg-orange-50 text-orange-700 border-orange-200/80',
+    info: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    success: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    purple: 'bg-purple-50 text-purple-700 border-purple-200/80',
     neutral: 'bg-slate-100 text-slate-700 border-slate-200',
   }[badgeType];
 
@@ -37,26 +38,42 @@ export const KPICard: React.FC<KPICardProps> = ({
   return (
     <Component
       onClick={onClick}
-      className={`w-full bg-white rounded-lg border border-slate-200 p-5 shadow-xs transition-all hover:border-slate-300 text-left ${
-        onClick ? 'cursor-pointer hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500' : ''
+      className={`group relative w-full bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs transition-all duration-200 hover:shadow-md hover:border-slate-300 text-left flex flex-col justify-between ${
+        onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500' : ''
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{title}</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">{value}</span>
-            {badge && (
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${badgeColors}`}>
-                {badge}
-              </span>
-            )}
-          </div>
-          {subValue && <p className="text-xs text-slate-700 mt-1 font-medium">{subValue}</p>}
+      {/* Top row: Title + Icon Badge */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-sans truncate">
+          {title}
+        </span>
+        <div
+          className={`w-9 h-9 rounded-xl ${iconBg} ${iconColor} flex items-center justify-center shrink-0 transition-transform group-hover:scale-105`}
+        >
+          <Icon className="w-4.5 h-4.5 stroke-[2.2]" aria-hidden="true" />
         </div>
-        <div className={`p-3 rounded-lg ${iconBg} ${iconColor} shrink-0 ml-3`}>
-          <Icon className="w-5 h-5" aria-hidden="true" />
+      </div>
+
+      {/* Middle & Bottom row: Big Value + Badge + Subtitle */}
+      <div className="mt-3 space-y-1">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
+            {typeof value === 'number' && value < 10 && value >= 0 ? `0${value}` : value}
+          </span>
+          {badge && (
+            <span
+              className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeStyles}`}
+            >
+              {badge}
+            </span>
+          )}
         </div>
+
+        {subValue && (
+          <p className="text-xs text-slate-500 font-medium leading-relaxed truncate">
+            {subValue}
+          </p>
+        )}
       </div>
     </Component>
   );

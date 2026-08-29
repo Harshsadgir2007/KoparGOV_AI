@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { CivicIssue } from '../../types';
 import { PriorityBadge } from '../common/PriorityBadge';
 import { StatusBadge } from '../common/StatusBadge';
-import { Sparkles, Search, Filter, ArrowRight, Clock, MapPin, Eye } from 'lucide-react';
+import { Sparkles, Search, Filter, ArrowRight, Clock, MapPin, Eye, ChevronRight } from 'lucide-react';
 import { KOPARGAON_WARDS } from '../../data/mockData';
 
 interface PriorityTableProps {
@@ -50,21 +50,26 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
   }, [issues, categoryFilter, wardFilter, priorityFilter, statusFilter, search, limit]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
       {/* Table Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+      <div className="p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-sky-600" />
-            <span>Priority Issues</span>
-          </h2>
-          <p className="text-xs text-slate-700 mt-0.5 font-medium">
-            Multi-criteria prioritization queue for Kopargaon municipal authorities
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-sky-600" />
+              <span>Prioritized Civic Queue</span>
+            </h2>
+            <span className="text-[10px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+              Live MCDA Triage
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5 font-medium">
+            Multi-criteria prioritization ranking across active Kopargaon issues
           </p>
         </div>
         <Link
           to="/issues"
-          className="inline-flex items-center gap-1 text-xs font-bold text-sky-700 hover:text-sky-800 transition-colors self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-700 hover:text-sky-800 transition-colors self-start sm:self-auto"
         >
           <span>View All Registry</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -73,7 +78,7 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
 
       {/* Filter Bar */}
       {showFilters && (
-        <div className="p-3 bg-slate-50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
+        <div className="p-3 bg-slate-50/70 border-b border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
           {/* Search */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -82,7 +87,7 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
               placeholder="Search issue..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-300 rounded-md text-slate-900 placeholder:text-slate-500 focus:ring-1 focus:ring-sky-500"
+              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-sky-500 text-xs font-medium"
             />
           </div>
 
@@ -90,13 +95,13 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
-            className="py-1.5 px-2 bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+            className="py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold text-xs"
             aria-label="Filter by Category"
           >
             <option value="ALL">All Categories</option>
             {categories.map(c => (
               <option key={c} value={c}>
-                {c}
+                {c.split(' ')[0]}
               </option>
             ))}
           </select>
@@ -105,13 +110,13 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
           <select
             value={wardFilter}
             onChange={e => setWardFilter(e.target.value)}
-            className="py-1.5 px-2 bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+            className="py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold text-xs"
             aria-label="Filter by Ward"
           >
             <option value="ALL">All Wards</option>
             {KOPARGAON_WARDS.map(w => (
               <option key={w.id} value={w.id.toString()}>
-                {w.name.split(' - ')[0]} ({w.name.split(' - ')[1] || ''})
+                {w.name.split(' - ')[0]}
               </option>
             ))}
           </select>
@@ -120,7 +125,7 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
           <select
             value={priorityFilter}
             onChange={e => setPriorityFilter(e.target.value)}
-            className="py-1.5 px-2 bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+            className="py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold text-xs"
             aria-label="Filter by Priority"
           >
             <option value="ALL">All Priorities</option>
@@ -134,12 +139,12 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="py-1.5 px-2 bg-white border border-slate-300 rounded-md text-slate-700 font-medium"
+            className="py-1.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-semibold text-xs"
             aria-label="Filter by Status"
           >
             <option value="ALL">All Statuses</option>
             <option value="REPORTED">Reported</option>
-            <option value="PRIORITIZED">Pending Approval</option>
+            <option value="PRIORITIZED">Pending</option>
             <option value="APPROVED">Approved</option>
             <option value="ASSIGNED">Assigned</option>
             <option value="IN_PROGRESS">In Progress</option>
@@ -152,46 +157,53 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
       <div className="overflow-x-auto flex-1">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase tracking-wider font-semibold">
-              <th className="py-3 px-4">Issue</th>
-              <th className="py-3 px-3">Category</th>
-              <th className="py-3 px-3">Ward</th>
-              <th className="py-3 px-3">Priority</th>
-              <th className="py-3 px-3">Level</th>
-              <th className="py-3 px-3">Status</th>
-              <th className="py-3 px-3">Age</th>
-              <th className="py-3 px-4 text-right">Action</th>
+            <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-600 uppercase tracking-wider font-bold text-[11px]">
+              <th className="py-3.5 px-4">Issue ID</th>
+              <th className="py-3.5 px-3">Title & Category</th>
+              <th className="py-3.5 px-3">Ward</th>
+              <th className="py-3.5 px-3 text-center">Score</th>
+              <th className="py-3.5 px-3">Priority</th>
+              <th className="py-3.5 px-3">Status</th>
+              <th className="py-3.5 px-4 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
             {filteredIssues.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-slate-400">
                   No issues matching criteria.
                 </td>
               </tr>
             ) : (
               filteredIssues.map(issue => (
-                <tr key={issue.id} className="hover:bg-slate-50 transition-colors">
-                  {/* Issue ID & Title */}
+                <tr key={issue.id} className="hover:bg-slate-50/80 transition-colors group">
+                  {/* Issue ID */}
                   <td className="py-3.5 px-4 font-mono font-bold text-slate-900 whitespace-nowrap">
-                    <Link to={`/issues/${issue.id}`} className="hover:text-sky-700">
-                      {issue.id}
+                    <Link to={`/issues/${issue.id}`} className="hover:text-sky-700 flex items-center gap-1">
+                      <span>{issue.id}</span>
                     </Link>
                   </td>
 
-                  {/* Category */}
-                  <td className="py-3.5 px-3 text-slate-800 font-medium whitespace-nowrap">
-                    {issue.category.split(' ')[0]}
+                  {/* Title & Category */}
+                  <td className="py-3.5 px-3 max-w-xs">
+                    <Link
+                      to={`/issues/${issue.id}`}
+                      className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors line-clamp-1 block"
+                    >
+                      {issue.title}
+                    </Link>
+                    <span className="text-[10px] font-semibold text-slate-500 block">
+                      {issue.category}
+                    </span>
                   </td>
 
                   {/* Ward */}
-                  <td className="py-3.5 px-3 text-slate-700 whitespace-nowrap font-medium">
+                  <td className="py-3.5 px-3 text-slate-700 whitespace-nowrap font-semibold">
                     {issue.ward.split(' - ')[0]}
                   </td>
 
                   {/* Priority Score */}
-                  <td className="py-3.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
+                  <td className="py-3.5 px-3 font-mono font-black text-slate-900 text-center whitespace-nowrap">
                     {issue.priority_score}
                   </td>
 
@@ -205,19 +217,14 @@ export const PriorityTable: React.FC<PriorityTableProps> = ({
                     <StatusBadge status={issue.status} size="sm" />
                   </td>
 
-                  {/* Age */}
-                  <td className="py-3.5 px-3 text-slate-700 whitespace-nowrap font-medium">
-                    {issue.age_days === 0 ? 'Today' : `${issue.age_days} days`}
-                  </td>
-
                   {/* Action */}
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
                     <Link
                       to={`/issues/${issue.id}`}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-sky-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 transition-colors"
                     >
-                      <Eye className="w-3 h-3" />
-                      <span>View Details</span>
+                      <span>Review</span>
+                      <ChevronRight className="w-3 h-3" />
                     </Link>
                   </td>
                 </tr>
