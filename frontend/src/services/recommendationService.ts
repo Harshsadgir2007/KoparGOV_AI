@@ -2,7 +2,7 @@ import { CIERecommendationDetail, AuthorityRole } from '../types';
 import { INITIAL_MOCK_RECOMMENDATIONS } from '../mock/recommendations';
 import { issueService } from './issueService';
 import { cieService } from './cieService';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, getApiAuthHeaders } from '../config/api';
 
 const RECOMMENDATIONS_STORAGE_KEY = 'kopargov_unified_recommendations_v3';
 
@@ -109,7 +109,10 @@ export const recommendationService = {
       try {
         await fetch(API_ENDPOINTS.WORKFLOW_APPROVE(cleanId), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getApiAuthHeaders()
+          },
           body: JSON.stringify({
             officer_id: officerName,
             notes: notes || 'Full sequential approval chain completed.',
@@ -167,7 +170,10 @@ export const recommendationService = {
     try {
       await fetch(API_ENDPOINTS.WORKFLOW_REJECT(cleanId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getApiAuthHeaders()
+        },
         body: JSON.stringify({
           officer_id: officerName,
           reason: reason || 'Rejected at approval checkpoint',

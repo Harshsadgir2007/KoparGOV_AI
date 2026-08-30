@@ -36,7 +36,7 @@ class WorkflowRecord(BaseModel):
 
 class ApproveWorkflowRequest(BaseModel):
     """Request payload for approving a civic issue."""
-    officer_id: Optional[str] = Field(default="Municipal Officer", description="ID of the municipal officer granting approval")
+    officer_id: Optional[str] = Field(default=None, description="ID of the municipal officer granting approval")
     notes: Optional[str] = Field(None, description="Optional approval notes or directives")
 
 

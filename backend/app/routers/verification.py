@@ -5,8 +5,10 @@ and record authorized municipal officer verification overrides.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.auth_dependency import require_officer
+from app.models.auth import AuthenticatedUser
 from app.models.verification import (
     OfficerVerificationOverrideRequest,
     VerificationResult,
@@ -67,14 +69,18 @@ async def reevaluate_verification(issue_id: str) -> VerificationResult:
 async def override_verification_status(
     issue_id: str,
     request: OfficerVerificationOverrideRequest,
-    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_officer: AuthenticatedUser = Depends(require_officer),
 ) -> VerificationResult:
     """Allow an authorized municipal officer to manually mark an issue as VERIFIED, UNVERIFIED, or NEEDS_REVIEW.
     
     Citizen accounts are strictly forbidden from overriding verification status.
     """
+    officer_name = (
+        request.officer_id
+        or (current_officer.officer_profile.name if current_officer.officer_profile else current_officer.uid)
+    )
     return verification_service.override_verification(
         issue_id=issue_id,
         request=request,
-        officer_role=x_officer_role,
+        officer_name=officer_name,
     )

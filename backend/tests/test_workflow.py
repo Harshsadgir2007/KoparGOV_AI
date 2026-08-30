@@ -7,6 +7,8 @@ from app.models.civic_issue import CivicIssue
 from app.models.workflow import WorkflowRecord, WorkflowStatus
 from app.routers.workflow import db_service
 
+OFFICER_HEADERS = {"Authorization": "Bearer mock-token-UID-AUTH-OFFICER-001"}
+
 
 @pytest.fixture
 def client():
@@ -70,7 +72,7 @@ def test_approve_workflow_happy_path(client):
         "officer_id": "OFFICER-42",
         "notes": "Approved for standard maintenance batch.",
     }
-    response = client.post("/api/workflow/ISSUE-WF-2/approve", json=payload)
+    response = client.post("/api/workflow/ISSUE-WF-2/approve", json=payload, headers=OFFICER_HEADERS)
     assert response.status_code == 200
     data = response.json()
 
@@ -105,7 +107,7 @@ def test_reject_workflow_happy_path(client):
         "officer_id": "OFFICER-12",
         "reason": "Duplicate report of already handled sanitation ticket #8812.",
     }
-    response = client.post("/api/workflow/ISSUE-WF-3/reject", json=payload)
+    response = client.post("/api/workflow/ISSUE-WF-3/reject", json=payload, headers=OFFICER_HEADERS)
     assert response.status_code == 200
     data = response.json()
 
@@ -129,7 +131,7 @@ def test_assign_workflow_happy_path(client):
     db_service.save_issue(issue)
 
     # Approve first
-    client.post("/api/workflow/ISSUE-WF-4/approve", json={"officer_id": "OFFICER-01"})
+    client.post("/api/workflow/ISSUE-WF-4/approve", json={"officer_id": "OFFICER-01"}, headers=OFFICER_HEADERS)
 
     # Assign
     assign_payload = {
@@ -137,7 +139,7 @@ def test_assign_workflow_happy_path(client):
         "officer_id": "OFFICER-01",
         "notes": "Bring asphalt patcher unit.",
     }
-    response = client.post("/api/workflow/ISSUE-WF-4/assign", json=assign_payload)
+    response = client.post("/api/workflow/ISSUE-WF-4/assign", json=assign_payload, headers=OFFICER_HEADERS)
     assert response.status_code == 200
     data = response.json()
 
@@ -159,13 +161,14 @@ def test_start_workflow_happy_path(client):
     )
     db_service.save_issue(issue)
 
-    client.post("/api/workflow/ISSUE-WF-5/approve", json={"officer_id": "OFFICER-01"})
-    client.post("/api/workflow/ISSUE-WF-5/assign", json={"assigned_team": "Crew 1"})
+    client.post("/api/workflow/ISSUE-WF-5/approve", json={"officer_id": "OFFICER-01"}, headers=OFFICER_HEADERS)
+    client.post("/api/workflow/ISSUE-WF-5/assign", json={"assigned_team": "Crew 1"}, headers=OFFICER_HEADERS)
 
     # Start work
     response = client.post(
         "/api/workflow/ISSUE-WF-5/start",
         json={"officer_id": "CREW-LEAD-9", "notes": "Work commenced on site."},
+        headers=OFFICER_HEADERS,
     )
     assert response.status_code == 200
     data = response.json()
@@ -188,16 +191,16 @@ def test_resolve_workflow_happy_path(client):
     )
     db_service.save_issue(issue)
 
-    client.post("/api/workflow/ISSUE-WF-6/approve", json={"officer_id": "OFFICER-01"})
-    client.post("/api/workflow/ISSUE-WF-6/assign", json={"assigned_team": "Crew 1"})
-    client.post("/api/workflow/ISSUE-WF-6/start", json={"officer_id": "CREW-LEAD-9"})
+    client.post("/api/workflow/ISSUE-WF-6/approve", json={"officer_id": "OFFICER-01"}, headers=OFFICER_HEADERS)
+    client.post("/api/workflow/ISSUE-WF-6/assign", json={"assigned_team": "Crew 1"}, headers=OFFICER_HEADERS)
+    client.post("/api/workflow/ISSUE-WF-6/start", json={"officer_id": "CREW-LEAD-9"}, headers=OFFICER_HEADERS)
 
     # Resolve
     resolve_payload = {
         "officer_id": "INSPECTOR-3",
         "resolution_notes": "Excavation and pipe replacement completed. Road surface repaved.",
     }
-    response = client.post("/api/workflow/ISSUE-WF-6/resolve", json=resolve_payload)
+    response = client.post("/api/workflow/ISSUE-WF-6/resolve", json=resolve_payload, headers=OFFICER_HEADERS)
     assert response.status_code == 200
     data = response.json()
 
@@ -225,17 +228,17 @@ def test_complete_valid_lifecycle(client):
     assert r0.json()["status"] == "PENDING"
 
     # 2. Approve
-    r1 = client.post("/api/workflow/LIFECYCLE-1/approve", json={"officer_id": "OFF-1"})
+    r1 = client.post("/api/workflow/LIFECYCLE-1/approve", json={"officer_id": "OFF-1"}, headers=OFFICER_HEADERS)
     assert r1.status_code == 200
     assert r1.json()["status"] == "APPROVED"
 
     # 3. Assign
-    r2 = client.post("/api/workflow/LIFECYCLE-1/assign", json={"assigned_team": "Forestry Team 2"})
+    r2 = client.post("/api/workflow/LIFECYCLE-1/assign", json={"assigned_team": "Forestry Team 2"}, headers=OFFICER_HEADERS)
     assert r2.status_code == 200
     assert r2.json()["status"] == "ASSIGNED"
 
     # 4. Start
-    r3 = client.post("/api/workflow/LIFECYCLE-1/start")
+    r3 = client.post("/api/workflow/LIFECYCLE-1/start", headers=OFFICER_HEADERS)
     assert r3.status_code == 200
     assert r3.json()["status"] == "IN_PROGRESS"
 
@@ -243,6 +246,7 @@ def test_complete_valid_lifecycle(client):
     r4 = client.post(
         "/api/workflow/LIFECYCLE-1/resolve",
         json={"resolution_notes": "Tree cleared, road reopened."},
+        headers=OFFICER_HEADERS,
     )
     assert r4.status_code == 200
     assert r4.json()["status"] == "RESOLVED"
@@ -264,6 +268,7 @@ def test_disallowed_deferred_to_approved(client):
     response = client.post(
         "/api/workflow/DEFERRED-ISSUE-1/approve",
         json={"officer_id": "OFF-1"},
+        headers=OFFICER_HEADERS,
     )
     assert response.status_code == 400
     data = response.json()
@@ -285,36 +290,36 @@ def test_invalid_transitions_return_400(client):
     db_service.save_issue(issue)
 
     # Cannot assign directly from PENDING (must be APPROVED)
-    r1 = client.post("/api/workflow/TRANS-ISSUE-1/assign", json={"assigned_team": "Team A"})
+    r1 = client.post("/api/workflow/TRANS-ISSUE-1/assign", json={"assigned_team": "Team A"}, headers=OFFICER_HEADERS)
     assert r1.status_code == 400
     assert "cannot assign" in r1.json()["detail"].lower()
 
     # Cannot start directly from PENDING (must be ASSIGNED)
-    r2 = client.post("/api/workflow/TRANS-ISSUE-1/start")
+    r2 = client.post("/api/workflow/TRANS-ISSUE-1/start", headers=OFFICER_HEADERS)
     assert r2.status_code == 400
     assert "cannot start" in r2.json()["detail"].lower()
 
     # Cannot resolve directly from PENDING (must be IN_PROGRESS)
-    r3 = client.post("/api/workflow/TRANS-ISSUE-1/resolve")
+    r3 = client.post("/api/workflow/TRANS-ISSUE-1/resolve", headers=OFFICER_HEADERS)
     assert r3.status_code == 400
     assert "cannot resolve" in r3.json()["detail"].lower()
 
     # Approve the issue
-    client.post("/api/workflow/TRANS-ISSUE-1/approve", json={"officer_id": "OFF-1"})
+    client.post("/api/workflow/TRANS-ISSUE-1/approve", json={"officer_id": "OFF-1"}, headers=OFFICER_HEADERS)
 
     # Cannot start work directly from APPROVED (must be ASSIGNED first)
-    r4 = client.post("/api/workflow/TRANS-ISSUE-1/start")
+    r4 = client.post("/api/workflow/TRANS-ISSUE-1/start", headers=OFFICER_HEADERS)
     assert r4.status_code == 400
 
     # Cannot resolve directly from APPROVED
-    r5 = client.post("/api/workflow/TRANS-ISSUE-1/resolve")
+    r5 = client.post("/api/workflow/TRANS-ISSUE-1/resolve", headers=OFFICER_HEADERS)
     assert r5.status_code == 400
 
     # Assign team
-    client.post("/api/workflow/TRANS-ISSUE-1/assign", json={"assigned_team": "Team A"})
+    client.post("/api/workflow/TRANS-ISSUE-1/assign", json={"assigned_team": "Team A"}, headers=OFFICER_HEADERS)
 
     # Cannot resolve directly from ASSIGNED (must START first)
-    r6 = client.post("/api/workflow/TRANS-ISSUE-1/resolve")
+    r6 = client.post("/api/workflow/TRANS-ISSUE-1/resolve", headers=OFFICER_HEADERS)
     assert r6.status_code == 400
 
 
@@ -326,16 +331,16 @@ def test_cannot_transition_from_resolved_state(client):
     )
     db_service.save_workflow_record(workflow)
 
-    r1 = client.post("/api/workflow/RESOLVED-ISSUE-1/approve", json={"officer_id": "OFF-1"})
+    r1 = client.post("/api/workflow/RESOLVED-ISSUE-1/approve", json={"officer_id": "OFF-1"}, headers=OFFICER_HEADERS)
     assert r1.status_code == 400
 
-    r2 = client.post("/api/workflow/RESOLVED-ISSUE-1/assign", json={"assigned_team": "Team B"})
+    r2 = client.post("/api/workflow/RESOLVED-ISSUE-1/assign", json={"assigned_team": "Team B"}, headers=OFFICER_HEADERS)
     assert r2.status_code == 400
 
-    r3 = client.post("/api/workflow/RESOLVED-ISSUE-1/start")
+    r3 = client.post("/api/workflow/RESOLVED-ISSUE-1/start", headers=OFFICER_HEADERS)
     assert r3.status_code == 400
 
-    r4 = client.post("/api/workflow/RESOLVED-ISSUE-1/resolve")
+    r4 = client.post("/api/workflow/RESOLVED-ISSUE-1/resolve", headers=OFFICER_HEADERS)
     assert r4.status_code == 400
 
 
@@ -347,8 +352,8 @@ def test_cannot_transition_from_rejected_state(client):
     )
     db_service.save_workflow_record(workflow)
 
-    r1 = client.post("/api/workflow/REJECTED-ISSUE-1/approve", json={"officer_id": "OFF-1"})
+    r1 = client.post("/api/workflow/REJECTED-ISSUE-1/approve", json={"officer_id": "OFF-1"}, headers=OFFICER_HEADERS)
     assert r1.status_code == 400
 
-    r2 = client.post("/api/workflow/REJECTED-ISSUE-1/assign", json={"assigned_team": "Team B"})
+    r2 = client.post("/api/workflow/REJECTED-ISSUE-1/assign", json={"assigned_team": "Team B"}, headers=OFFICER_HEADERS)
     assert r2.status_code == 400

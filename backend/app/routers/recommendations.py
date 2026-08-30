@@ -1,15 +1,16 @@
 """Municipal Recommendations and Decision Approvals API Router."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from app.models.decision import DecisionExplanation, MCDARanking
+from app.core.auth_dependency import require_officer
+from app.models.auth import AuthenticatedUser
+from app.models.decision import DecisionExplanation
 from app.models.workflow import ApproveWorkflowRequest, WorkflowRecord
-from app.routers.workflow import approve_issue, _verify_officer_authorization
+from app.routers.workflow import approve_issue
 from app.services.db_service import DatabaseService
 from app.services.pipeline import CIEPipelineService
-
 from app.models.resources import MunicipalResources
 
 router = APIRouter(prefix="/api/recommendations", tags=["Recommendations"])
@@ -53,7 +54,6 @@ async def list_recommendations() -> List[RecommendationItem]:
 
     cie_result = pipeline_service.run_pipeline(issues=issues, resources=DEFAULT_RESOURCES)
 
-    # Index explanations by issue_id
     expl_map = {e.issue_id: e for e in cie_result.explanations}
     selected_set = set(cie_result.allocation_plan.selected_issue_ids if cie_result.allocation_plan else [])
     rank_map = {r.issue_id: r for r in cie_result.mcda_rankings}
@@ -86,7 +86,6 @@ async def list_recommendations() -> List[RecommendationItem]:
             )
         )
 
-    # Sort descending by priority score
     items.sort(key=lambda x: x.priority_score, reverse=True)
     return items
 
@@ -129,10 +128,6 @@ async def get_recommendation(issue_id: str) -> RecommendationItem:
     )
 
 
-from app.core.auth_dependency import get_current_user
-from app.models.auth import AuthenticatedUser
-
-
 @router.post(
     "/{issue_id}/approve",
     response_model=WorkflowRecord,
@@ -142,17 +137,19 @@ from app.models.auth import AuthenticatedUser
 async def approve_recommendation_endpoint(
     issue_id: str,
     payload: Optional[ApproveWorkflowRequest] = None,
-    x_officer_role: Optional[str] = Header(default=None, alias="X-Officer-Role"),
-    officer_id: Optional[str] = Header(default=None, alias="X-Officer-Id"),
-    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
+    current_officer: AuthenticatedUser = Depends(require_officer),
 ) -> WorkflowRecord:
     """Officer human-in-the-loop approval endpoint."""
-    req = payload or ApproveWorkflowRequest(officer_id=officer_id or "Municipal Officer")
+    officer_name = (
+        current_officer.officer_profile.name
+        if current_officer.officer_profile
+        else current_officer.uid
+    )
+    req = payload or ApproveWorkflowRequest(officer_id=officer_name)
     if not req.officer_id:
-        req.officer_id = officer_id or "Municipal Officer"
+        req.officer_id = officer_name
     return await approve_issue(
         issue_id=issue_id,
         request=req,
-        x_officer_role=x_officer_role,
-        current_user=current_user,
+        current_officer=current_officer,
     )

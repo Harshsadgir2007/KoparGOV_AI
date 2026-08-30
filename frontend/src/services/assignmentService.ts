@@ -1,7 +1,7 @@
 import { MunicipalAssignment, CivicStatus } from '../types';
 import { INITIAL_MOCK_ASSIGNMENTS } from '../mock/assignments';
 import { issueService } from './issueService';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, getApiAuthHeaders } from '../config/api';
 
 export interface AssignmentFilters {
   search?: string;
@@ -101,7 +101,10 @@ export const assignmentService = {
     try {
       await fetch(API_ENDPOINTS.WORKFLOW_ASSIGN(cleanId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getApiAuthHeaders()
+        },
         body: JSON.stringify({
           assigned_team: data.team,
           officer_id: 'Municipal Dispatch Officer',
@@ -155,7 +158,10 @@ export const assignmentService = {
       try {
         await fetch(API_ENDPOINTS.WORKFLOW_START(cleanId), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getApiAuthHeaders()
+          },
           body: JSON.stringify({
             officer_id: 'Field Team Lead',
             notes: 'Work commenced on site.',
@@ -196,7 +202,10 @@ export const assignmentService = {
     try {
       await fetch(API_ENDPOINTS.WORKFLOW_RESOLVE(cleanId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getApiAuthHeaders()
+        },
         body: JSON.stringify({
           officer_id: 'Chief Municipal Officer',
           resolution_notes: resolution.completion_notes,

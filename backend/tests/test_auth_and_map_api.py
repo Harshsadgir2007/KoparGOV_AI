@@ -31,9 +31,10 @@ def test_auth_login_and_me():
     assert data["token"].startswith("kpg-token-")
 
     # Test /me endpoint
-    r_me = client.get("/api/auth/me", headers={"X-Officer-Role": "WARD_INCHARGE", "X-Officer-Id": "Shri. Sunil Jadhav"})
+    r_me = client.get("/api/auth/me", headers={"Authorization": "Bearer mock-token-OFFICER-SUNIL-01"})
     assert r_me.status_code == 200
-    assert r_me.json()["role"] == "WARD_INCHARGE"
+    assert r_me.json()["role"] == "officer"
+    assert r_me.json()["is_officer"] is True
 
 
 def test_citizen_register():

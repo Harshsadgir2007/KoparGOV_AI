@@ -38,7 +38,7 @@ def reset_system_state():
     """Reset database and resilience state before each test."""
     resilience = get_resilience_service()
     resilience.reset_demo()
-    for key in _GLOBAL_MOCK_DB:
+    for key in ["issues", "workflow", "verification_results", "cie_results", "recommendations", "assignments", "resolutions"]:
         _GLOBAL_MOCK_DB[key] = {}
     yield
 
@@ -418,7 +418,7 @@ def test_officer_override_and_rbac():
     cit_res = client.post(
         "/api/verification/ISS-OVERRIDE-1/override",
         json=override_body,
-        headers={"X-Officer-Role": "CITIZEN"},
+        headers={"Authorization": "Bearer mock-token-UID-CITIZEN-RAHUL-004"},
     )
     assert cit_res.status_code == 403
 
@@ -431,7 +431,7 @@ def test_officer_override_and_rbac():
     off_res = client.post(
         "/api/verification/ISS-OVERRIDE-1/override",
         json=officer_body,
-        headers={"X-Officer-Role": "CHIEF_OFFICER"},
+        headers={"Authorization": "Bearer mock-token-UID-AUTH-OFFICER-001"},
     )
     assert off_res.status_code == 200
     off_data = off_res.json()

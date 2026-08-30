@@ -2,7 +2,10 @@
 
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.core.auth_dependency import require_officer
+from app.models.auth import AuthenticatedUser
 
 from app.core.contractor_engine import ContractorAccountabilityEngine
 from app.models.contractor import (
@@ -226,15 +229,9 @@ async def get_project(project_id: str) -> MunicipalProject:
 async def record_project_inspection(
     project_id: str,
     request: RecordInspectionRequest,
-    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_officer: AuthenticatedUser = Depends(require_officer),
 ) -> MunicipalProject:
     """Record an on-site project inspection outcome and trigger contractor accountability updates."""
-    if x_officer_role and x_officer_role.upper() == "CITIZEN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Citizens cannot record official municipal project inspections.",
-        )
-
     clean_id = project_id.upper()
     if clean_id not in PROJECTS_STORE:
         raise HTTPException(

@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, getApiAuthHeaders } from '../config/api';
 import {
   Contractor,
   MunicipalProject,
@@ -259,7 +259,10 @@ export const contractorService = {
     try {
       const res = await fetch(API_ENDPOINTS.PROJECT_INSPECT(cleanId), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getApiAuthHeaders(),
+        },
         body: JSON.stringify(request),
       });
       if (res.ok) {

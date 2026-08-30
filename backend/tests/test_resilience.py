@@ -81,6 +81,9 @@ def test_operation_journal_logging_on_issue_creation():
     assert created_entry["checksum"] is not None
 
 
+OFFICER_HEADERS = {"Authorization": "Bearer mock-token-UID-AUTH-OFFICER-001"}
+
+
 def test_workflow_actions_logged_to_journal():
     """Test officer approval, assignment, start, and resolution logging in journal."""
     issue_id = "ISS-WF-JOURNAL"
@@ -101,13 +104,13 @@ def test_workflow_actions_logged_to_journal():
     })
 
     # 1. Approve
-    client.post(f"/api/workflow/{issue_id}/approve", json={"officer_id": "Chief Officer"})
+    client.post(f"/api/workflow/{issue_id}/approve", json={"officer_id": "Chief Officer"}, headers=OFFICER_HEADERS)
     # 2. Assign
-    client.post(f"/api/workflow/{issue_id}/assign", json={"assigned_team": "Electrical Squad 2"})
+    client.post(f"/api/workflow/{issue_id}/assign", json={"assigned_team": "Electrical Squad 2"}, headers=OFFICER_HEADERS)
     # 3. Start
-    client.post(f"/api/workflow/{issue_id}/start", json={"officer_id": "Team Lead"})
+    client.post(f"/api/workflow/{issue_id}/start", json={"officer_id": "Team Lead"}, headers=OFFICER_HEADERS)
     # 4. Resolve
-    client.post(f"/api/workflow/{issue_id}/resolve", json={"resolution_notes": "Bulb and wiring replaced."})
+    client.post(f"/api/workflow/{issue_id}/resolve", json={"resolution_notes": "Bulb and wiring replaced."}, headers=OFFICER_HEADERS)
 
     journal_res = client.get("/api/resilience/journal")
     journal = journal_res.json()
@@ -139,7 +142,7 @@ def test_simulate_blackout_and_recovery_flow():
         "required_vehicles": 1,
         "required_time_hours": 4,
     })
-    client.post(f"/api/workflow/{issue_id}/approve", json={"officer_id": "Municipal Officer Patil"})
+    client.post(f"/api/workflow/{issue_id}/approve", json={"officer_id": "Municipal Officer Patil"}, headers=OFFICER_HEADERS)
 
     # 2. Simulate Blackout
     blackout_res = client.post("/api/resilience/simulate-blackout")

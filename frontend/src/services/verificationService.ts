@@ -1,5 +1,5 @@
 import { VerificationResult, VerificationOverridePayload } from '../types/verification';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, getApiAuthHeaders } from '../config/api';
 
 export const verificationService = {
   /**
@@ -7,7 +7,9 @@ export const verificationService = {
    */
   async getVerificationResult(issueId: string): Promise<VerificationResult | null> {
     try {
-      const response = await fetch(API_ENDPOINTS.VERIFICATION_DETAIL(issueId));
+      const response = await fetch(API_ENDPOINTS.VERIFICATION_DETAIL(issueId), {
+        headers: getApiAuthHeaders(),
+      });
       if (response.ok) {
         return await response.json();
       }
@@ -24,6 +26,7 @@ export const verificationService = {
     try {
       const response = await fetch(API_ENDPOINTS.VERIFICATION_REEVALUATE(issueId), {
         method: 'POST',
+        headers: getApiAuthHeaders(),
       });
       if (response.ok) {
         return await response.json();
@@ -40,14 +43,14 @@ export const verificationService = {
   async overrideVerification(
     issueId: string,
     payload: VerificationOverridePayload,
-    officerRole: string = 'DEPARTMENT_OFFICER'
+    _officerRole: string = 'DEPARTMENT_OFFICER'
   ): Promise<VerificationResult | null> {
     try {
       const response = await fetch(API_ENDPOINTS.VERIFICATION_OVERRIDE(issueId), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Officer-Role': officerRole,
+          ...getApiAuthHeaders(),
         },
         body: JSON.stringify(payload),
       });

@@ -88,29 +88,21 @@ class VerificationService:
         issue_id: str,
         request: OfficerVerificationOverrideRequest,
         officer_role: Optional[str] = None,
+        officer_name: Optional[str] = None,
     ) -> VerificationResult:
         """Allow an authorized municipal officer to manually verify or dispute an issue.
         
         Args:
             issue_id: Civic issue identifier.
             request: Officer verification override payload.
-            officer_role: Role header value (e.g. from X-Officer-Role).
+            officer_role: Optional role string.
+            officer_name: Optional verified officer name.
             
         Returns:
             Updated VerificationResult instance.
-            
-        Raises:
-            HTTPException 403: If caller is a citizen.
-            HTTPException 401: If officer identity is empty.
-            HTTPException 404: If issue not found.
         """
-        if officer_role and officer_role.upper() == "CITIZEN":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Forbidden: Citizen accounts cannot perform officer verification actions.",
-            )
-
-        if not request.officer_id or not str(request.officer_id).strip():
+        effective_officer = officer_name or request.officer_id
+        if not effective_officer or not str(effective_officer).strip():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized: Municipal officer identity required for verification override.",
@@ -122,7 +114,7 @@ class VerificationService:
         # Update verification attributes based on officer judgment
         current.verification_status = request.status
         current.manual_override = True
-        current.overridden_by = request.officer_id.strip()
+        current.overridden_by = str(effective_officer).strip()
         current.override_notes = request.notes
         current.override_timestamp = now_iso
 
@@ -139,7 +131,7 @@ class VerificationService:
         elif request.status == VerificationStatus.NEEDS_REVIEW:
             current.requires_officer_review = True
 
-        override_audit_msg = f"Officer manual override: Status set to {request.status.value} by {request.officer_id}."
+        override_audit_msg = f"Officer manual override: Status set to {request.status.value} by {effective_officer}."
         if request.notes:
             override_audit_msg += f" Note: {request.notes}"
         current.verification_reasons.append(override_audit_msg)

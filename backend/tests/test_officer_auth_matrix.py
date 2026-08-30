@@ -103,9 +103,6 @@ def setup_test_data():
 
     # Cleanup
     db.delete_issue("ISS-SEC-TEST-01")
-    db.delete_officer("UID-AUTH-OFFICER-001")
-    db.delete_officer("UID-UNVERIFIED-OFFICER-002")
-    db.delete_officer("UID-INACTIVE-OFFICER-003")
 
 
 # ------------------------------------------------------------------------------

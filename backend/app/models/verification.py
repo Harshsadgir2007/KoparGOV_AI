@@ -50,5 +50,5 @@ class VerificationResult(BaseModel):
 class OfficerVerificationOverrideRequest(BaseModel):
     """Payload for human municipal officer verification override."""
     status: VerificationStatus = Field(..., description="New verification status to assign (VERIFIED, UNVERIFIED, NEEDS_REVIEW)")
-    officer_id: str = Field(..., description="ID or designation of reviewing officer")
+    officer_id: Optional[str] = Field(default=None, description="ID or designation of reviewing officer (defaults to authenticated officer)")
     notes: Optional[str] = Field(None, description="Officer justification or field inspection notes")

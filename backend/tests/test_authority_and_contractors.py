@@ -150,7 +150,11 @@ def test_contractors_api_list_and_inspect():
         "inspection_notes": "Sub-base asphalt degradation observed near drainage curb. Contractor instructed to mill and patch within 7 days.",
         "evidence_photos": ["https://images.unsplash.com/photo-1542601906990-b4d3fb778b09"],
     }
-    res_insp = client.post("/api/contractors/projects/PRJ-024/inspect", json=inspect_payload)
+    res_insp = client.post(
+        "/api/contractors/projects/PRJ-024/inspect",
+        json=inspect_payload,
+        headers={"Authorization": "Bearer mock-token-UID-AUTH-OFFICER-001"},
+    )
     assert res_insp.status_code == 200
     updated_prj = res_insp.json()
     assert updated_prj["status"] == "REWORK_IN_PROGRESS"

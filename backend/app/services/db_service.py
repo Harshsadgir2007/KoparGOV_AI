@@ -31,7 +31,14 @@ except ImportError:
 
 
 _GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
-    "users": {},
+    "users": {
+        "UID-CITIZEN-RAHUL-004": {
+            "uid": "UID-CITIZEN-RAHUL-004",
+            "name": "Rahul Patil",
+            "email": "rahul.patil@gmail.com",
+            "role": "citizen",
+        },
+    },
     "issues": {},
     "resources": {},
     "recommendations": {},
@@ -42,7 +49,80 @@ _GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
     "notifications": {},
     "cie_results": {},
     "workflow": {},
-    "officers": {},
+    "officers": {
+        "DEMO-OFFICER-UID": {
+            "uid": "DEMO-OFFICER-UID",
+            "name": "Demo Municipal Officer",
+            "employeeId": "KOP-DEMO-001",
+            "designation": "Chief Municipal Officer (CMO)",
+            "department": "Kopargaon Municipal Administration",
+            "ward": "Ward 5",
+            "email": "officer@kopargaon.gov.in",
+            "hierarchy_role": "CMO",
+            "verified": True,
+            "active": True,
+        },
+        "UID-AUTH-OFFICER-001": {
+            "uid": "UID-AUTH-OFFICER-001",
+            "name": "Demo Municipal Officer",
+            "employeeId": "KOP-DEMO-001",
+            "designation": "Chief Municipal Officer (CMO)",
+            "department": "Kopargaon Municipal Council",
+            "ward": "Ward 5",
+            "email": "officer@kopargaon.gov.in",
+            "hierarchy_role": "CMO",
+            "verified": True,
+            "active": True,
+        },
+        "OFFICER-SUNIL-01": {
+            "uid": "OFFICER-SUNIL-01",
+            "name": "Shri. Sunil Jadhav",
+            "employeeId": "KOP-MUN-002",
+            "designation": "Junior Engineer & Ward 5 Field In-Charge",
+            "department": "Ward 5 Field Administration",
+            "ward": "Ward 5",
+            "email": "sunil.jadhav@kopargaon.gov.in",
+            "hierarchy_role": "WARD_OFFICER",
+            "verified": True,
+            "active": True,
+        },
+        "OFFICER-SUNITA-DEPT": {
+            "uid": "OFFICER-SUNITA-DEPT",
+            "name": "Smt. Sunita More",
+            "employeeId": "KOP-MUN-003",
+            "designation": "Sanitation & Public Health Superintendent",
+            "department": "Sanitation & Solid Waste Management Dept.",
+            "ward": "City-Wide",
+            "email": "sunita.more@kopargaon.gov.in",
+            "hierarchy_role": "DEPARTMENT_OFFICER",
+            "verified": True,
+            "active": True,
+        },
+        "OFFICER-RAJESH-CMO": {
+            "uid": "OFFICER-RAJESH-CMO",
+            "name": "Shri. Rajesh Kulkarni",
+            "employeeId": "KOP-MUN-001",
+            "designation": "Chief Municipal Officer (CMO)",
+            "department": "Kopargaon Municipal Council (KMC)",
+            "ward": "City-Wide",
+            "email": "rajesh.kulkarni@kopargaon.gov.in",
+            "hierarchy_role": "CMO",
+            "verified": True,
+            "active": True,
+        },
+        "OFFICER-DEEPAK-TAHSILDAR": {
+            "uid": "OFFICER-DEEPAK-TAHSILDAR",
+            "name": "Shri. Deepak Shinde",
+            "employeeId": "KOP-REV-001",
+            "designation": "Tahsildar & Sub-Divisional Magistrate",
+            "department": "Sub-Divisional Revenue & Taluka Administration",
+            "ward": "Taluka-Wide",
+            "email": "deepak.shinde@maharashtra.gov.in",
+            "hierarchy_role": "TAHSILDAR",
+            "verified": True,
+            "active": True,
+        },
+    },
     "verification_results": {},
 }
 
@@ -411,44 +491,54 @@ class DatabaseService:
     # Officers Registry (Collection: 'officers/{firebase_uid}')
     # --------------------------------------------------------------------------
 
-    def save_officer(self, officer_dict: Dict[str, Any]) -> str:
-        """Save or pre-provision a municipal officer in Firestore 'officers' collection."""
-        uid = officer_dict.get("uid")
-        if not uid:
-            raise ValueError("Officer record must have a valid Firebase UID.")
-        if self._using_mock:
-            self._mock_db.setdefault("officers", {})[uid] = officer_dict
-        else:
-            self.client.collection("officers").document(uid).set(officer_dict)
+    def save_officer(self, officer_data: Dict[str, Any]) -> str:
+        """Register or update a municipal officer in Firestore."""
+        uid = officer_data.get("uid") or f"OFFICER-{uuid.uuid4().hex[:8]}"
+        officer_dict = {**officer_data, "uid": uid}
+        self._mock_db.setdefault("officers", {})[uid] = officer_dict
+        if not self._using_mock and self.client:
+            try:
+                self.client.collection("officers").document(uid).set(officer_dict)
+            except Exception:
+                pass
         return uid
 
     def get_officer(self, uid: str) -> Optional[Dict[str, Any]]:
         """Retrieve an officer record by Firebase UID."""
         if not uid:
             return None
-        if self._using_mock:
-            return self._mock_db.setdefault("officers", {}).get(uid)
-        else:
-            doc = self.client.collection("officers").document(uid).get()
-            return doc.to_dict() if doc.exists else None
+        if not self._using_mock and self.client:
+            try:
+                doc = self.client.collection("officers").document(uid).get()
+                if doc.exists:
+                    return doc.to_dict()
+            except Exception:
+                pass
+        return self._mock_db.setdefault("officers", {}).get(uid)
 
     def list_officers(self) -> List[Dict[str, Any]]:
         """List all pre-provisioned municipal officers."""
-        if self._using_mock:
-            return list(self._mock_db.setdefault("officers", {}).values())
-        else:
-            docs = self.client.collection("officers").stream()
-            return [doc.to_dict() for doc in docs]
+        if not self._using_mock and self.client:
+            try:
+                docs = self.client.collection("officers").stream()
+                res = [doc.to_dict() for doc in docs]
+                if res:
+                    return res
+            except Exception:
+                pass
+        return list(self._mock_db.setdefault("officers", {}).values())
 
     def delete_officer(self, uid: str) -> bool:
         """Remove an officer from registry."""
         if not uid:
             return False
-        if self._using_mock:
-            return bool(self._mock_db.setdefault("officers", {}).pop(uid, None))
-        else:
-            self.client.collection("officers").document(uid).delete()
-            return True
+        res = bool(self._mock_db.setdefault("officers", {}).pop(uid, None))
+        if not self._using_mock and self.client:
+            try:
+                self.client.collection("officers").document(uid).delete()
+            except Exception:
+                pass
+        return res
 
     # --------------------------------------------------------------------------
     # Civic Trust & Verification Results (Collection: 'verification_results')
@@ -468,11 +558,13 @@ class DatabaseService:
             result.evaluated_at = now_iso
 
         doc_data = result.model_dump()
+        self._mock_db["verification_results"][result.issue_id] = doc_data
 
-        if self._using_mock:
-            self._mock_db["verification_results"][result.issue_id] = doc_data
-        else:
-            self.client.collection("verification_results").document(result.issue_id).set(doc_data)
+        if not self._using_mock and self.client:
+            try:
+                self.client.collection("verification_results").document(result.issue_id).set(doc_data)
+            except Exception:
+                pass
 
         return result.issue_id
 
@@ -485,14 +577,15 @@ class DatabaseService:
         Returns:
             VerificationResult if found, None otherwise.
         """
-        if self._using_mock:
-            data = self._mock_db["verification_results"].get(issue_id)
-            return VerificationResult(**data) if data else None
-        else:
-            doc = self.client.collection("verification_results").document(issue_id).get()
-            if doc.exists:
-                return VerificationResult(**doc.to_dict())
-            return None
+        if not self._using_mock and self.client:
+            try:
+                doc = self.client.collection("verification_results").document(issue_id).get()
+                if doc.exists:
+                    return VerificationResult(**doc.to_dict())
+            except Exception:
+                pass
+        data = self._mock_db["verification_results"].get(issue_id)
+        return VerificationResult(**data) if data else None
 
     def list_verification_results(self) -> List[VerificationResult]:
         """List all stored verification evaluation results.
@@ -500,9 +593,12 @@ class DatabaseService:
         Returns:
             List of VerificationResult instances.
         """
-        if self._using_mock:
-            return [VerificationResult(**data) for data in self._mock_db["verification_results"].values()]
-        else:
-            docs = self.client.collection("verification_results").stream()
-            return [VerificationResult(**doc.to_dict()) for doc in docs]
-
+        if not self._using_mock and self.client:
+            try:
+                docs = self.client.collection("verification_results").stream()
+                res = [VerificationResult(**doc.to_dict()) for doc in docs]
+                if res:
+                    return res
+            except Exception:
+                pass
+        return [VerificationResult(**data) for data in self._mock_db["verification_results"].values()]

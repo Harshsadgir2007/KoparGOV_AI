@@ -50,3 +50,13 @@ export const API_ENDPOINTS = {
   VERIFICATION_REEVALUATE: (id: string) => `${API_BASE_URL}/api/verification/${id}/evaluate`,
   VERIFICATION_OVERRIDE: (id: string) => `${API_BASE_URL}/api/verification/${id}/override`,
 };
+
+export function getApiAuthHeaders(): Record<string, string> {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('kopargov_auth_token_v4');
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+  }
+  return {};
+}
