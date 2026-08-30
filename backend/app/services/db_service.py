@@ -408,7 +408,6 @@ class DatabaseService:
             return doc.to_dict() if doc.exists else None
 
     # --------------------------------------------------------------------------
-<<<<<<< HEAD
     # Officers Registry (Collection: 'officers/{firebase_uid}')
     # --------------------------------------------------------------------------
 
