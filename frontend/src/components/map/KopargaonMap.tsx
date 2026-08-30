@@ -202,25 +202,31 @@ export const KopargaonMap: React.FC<KopargaonMapProps> = ({
         />
 
         {/* Civic Issue Markers */}
-        {issues.map(issue => (
-          <Marker
-            key={issue.id}
-            position={issue.coordinates}
-            icon={createPriorityMarker(issue.priority_level, issue.priority_score)}
-          >
-            {/* 5. Marker Popup matching exact specification */}
-            <Popup className="custom-issue-popup">
-              <div className="p-1.5 min-w-[240px] max-w-xs space-y-2 text-xs">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-slate-900 text-xs">{issue.id}</span>
-                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
-                      {issue.ward.split(' - ')[0]}
-                    </span>
+        {issues.map(issue => {
+          const coords: [number, number] = (issue.coordinates && issue.coordinates.length === 2 && !isNaN(issue.coordinates[0]) && !isNaN(issue.coordinates[1]))
+            ? issue.coordinates
+            : [19.8917, 74.4789];
+          const wardDisplay = (issue.ward || 'Ward 1').split(' - ')[0];
+
+          return (
+            <Marker
+              key={issue.id}
+              position={coords}
+              icon={createPriorityMarker(issue.priority_level, issue.priority_score)}
+            >
+              {/* 5. Marker Popup matching exact specification */}
+              <Popup className="custom-issue-popup">
+                <div className="p-1.5 min-w-[240px] max-w-xs space-y-2 text-xs">
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-200">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-slate-900 text-xs">{issue.id}</span>
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">
+                        {wardDisplay}
+                      </span>
+                    </div>
+                    <PriorityBadge level={issue.priority_level} size="sm" />
                   </div>
-                  <PriorityBadge level={issue.priority_level} size="sm" />
-                </div>
 
                 {/* Title */}
                 <h4 className="font-bold text-slate-900 leading-snug line-clamp-2">
@@ -258,7 +264,8 @@ export const KopargaonMap: React.FC<KopargaonMapProps> = ({
               </div>
             </Popup>
           </Marker>
-        ))}
+          );
+        })}
 
         {/* Optional Fleet / Resource Layer */}
         {showResources &&

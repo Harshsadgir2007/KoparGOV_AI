@@ -35,23 +35,23 @@ export const IssuesPage: React.FC = () => {
     return issues
       .filter(issue => {
         if (categoryFilter !== 'ALL' && issue.category !== categoryFilter) return false;
-        if (wardFilter !== 'ALL' && issue.ward_number.toString() !== wardFilter) return false;
+        if (wardFilter !== 'ALL' && String(issue.ward_number ?? '') !== wardFilter) return false;
         if (priorityFilter !== 'ALL' && issue.priority_level !== priorityFilter) return false;
         if (statusFilter !== 'ALL' && issue.status !== statusFilter) return false;
         if (dateFilter !== 'ALL') {
-          if (dateFilter === 'TODAY' && issue.age_days !== 0) return false;
-          if (dateFilter === '3DAYS' && issue.age_days > 3) return false;
-          if (dateFilter === '7DAYS' && issue.age_days > 7) return false;
+          if (dateFilter === 'TODAY' && (issue.age_days ?? 0) !== 0) return false;
+          if (dateFilter === '3DAYS' && (issue.age_days ?? 0) > 3) return false;
+          if (dateFilter === '7DAYS' && (issue.age_days ?? 0) > 7) return false;
         }
         if (search.trim()) {
           const q = search.toLowerCase();
           return (
-            issue.id.toLowerCase().includes(q) ||
-            issue.title.toLowerCase().includes(q) ||
-            issue.description.toLowerCase().includes(q) ||
-            issue.address.toLowerCase().includes(q) ||
-            issue.ward.toLowerCase().includes(q) ||
-            issue.category.toLowerCase().includes(q)
+            (issue.id || '').toLowerCase().includes(q) ||
+            (issue.title || '').toLowerCase().includes(q) ||
+            (issue.description || '').toLowerCase().includes(q) ||
+            (issue.address || '').toLowerCase().includes(q) ||
+            (issue.ward || '').toLowerCase().includes(q) ||
+            (issue.category || '').toLowerCase().includes(q)
           );
         }
         return true;

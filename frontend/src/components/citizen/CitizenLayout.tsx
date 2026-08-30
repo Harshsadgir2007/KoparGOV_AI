@@ -74,6 +74,11 @@ export const CitizenLayout: React.FC = () => {
     await recommendationService.resetDemo();
     await assignmentService.resetDemo();
     await citizenService.resetDemo();
+    try {
+      await resilienceService.resetDemo();
+    } catch (e) {
+      console.warn('Resilience reset skipped:', e);
+    }
     showToast('info', 'Demo State Reset', 'Restored ISS-1024 to PENDING state and refreshed complaint feeds.');
   };
 

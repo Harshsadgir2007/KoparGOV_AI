@@ -29,10 +29,10 @@ export function transformCivicIssueToBackend(issue: CivicIssue): CIEIssuePayload
   const factors = issue.factors || {
     severity: 85,
     urgency: 80,
-    population_affected: issue.population_affected || 500,
+    population_affected: issue.population_affected ?? 500,
     health_safety: 75,
     location_sensitivity: 70,
-    complaint_age_days: issue.age_days || 1,
+    complaint_age_days: issue.age_days ?? 0,
   };
 
   return {
@@ -43,10 +43,10 @@ export function transformCivicIssueToBackend(issue: CivicIssue): CIEIssuePayload
     location: issue.address || issue.ward || 'Kopargaon',
     severity: factors.severity ?? 80,
     urgency: factors.urgency ?? 75,
-    population_affected: issue.population_affected || factors.population_affected || 500,
+    population_affected: factors.population_affected ?? issue.population_affected ?? 500,
     health_safety_impact: factors.health_safety ?? 70,
     location_sensitivity: factors.location_sensitivity ?? 70,
-    complaint_age: issue.age_days ?? factors.complaint_age_days ?? 1,
+    complaint_age: factors.complaint_age_days ?? issue.age_days ?? 0,
     estimated_cost: issue.recommendation?.estimated_cost ?? 15000,
     required_workers: issue.recommendation?.required_workers ?? 2,
     required_vehicles: issue.recommendation?.required_vehicles ?? 1,
@@ -93,10 +93,10 @@ function createLocalFallbackPipelineResponse(
   const mcdaRankings: MCDAScoreResult[] = issues.map(issue => {
     const normSeverity = Math.min(100, Math.max(0, issue.severity));
     const normUrgency = Math.min(100, Math.max(0, issue.urgency));
-    const normPop = Math.min(100, Math.max(0, (issue.population_affected / 1200) * 100));
+    const normPop = Math.min(100, Math.max(0, issue.population_affected <= 100 ? issue.population_affected : (issue.population_affected / 1200) * 100));
     const normHealth = Math.min(100, Math.max(0, issue.health_safety_impact));
     const normLocation = Math.min(100, Math.max(0, issue.location_sensitivity));
-    const normAge = Math.min(100, Math.max(0, (issue.complaint_age / 10) * 100));
+    const normAge = Math.min(100, Math.max(0, issue.complaint_age <= 100 ? issue.complaint_age : (issue.complaint_age / 10) * 100));
 
     const weightedSeverity = normSeverity * 0.25;
     const weightedUrgency = normUrgency * 0.20;
@@ -391,10 +391,10 @@ export const cieService = {
       factors: {
         severity: mcdaResult.factor_scores?.normalized_severity ?? (issue.factors?.severity || 85),
         urgency: mcdaResult.factor_scores?.normalized_urgency ?? (issue.factors?.urgency || 80),
-        population_affected: issue.population_affected || 1200,
+        population_affected: mcdaResult.factor_scores?.normalized_population_affected ?? (issue.factors?.population_affected || 95),
         health_safety: mcdaResult.factor_scores?.normalized_health_safety_impact ?? (issue.factors?.health_safety || 75),
         location_sensitivity: mcdaResult.factor_scores?.normalized_location_sensitivity ?? (issue.factors?.location_sensitivity || 70),
-        complaint_age_days: issue.age_days || 1,
+        complaint_age_days: mcdaResult.factor_scores?.normalized_complaint_age ?? (issue.factors?.complaint_age_days ?? 0),
       },
       recommended_action: {
         headline: isSelected

@@ -1,5 +1,5 @@
 import { CivicIssue, CivicCategory, CivicStatus, CitizenProfile, LeaderboardEntry, CitizenIdentityMode } from '../types';
-import { issueService } from './issueService';
+import { api } from './api';
 import { DEFAULT_CITIZEN_PROFILE, MOCK_LEADERBOARD } from '../mock/citizens';
 import { API_ENDPOINTS } from '../config/api';
 import { transformCivicIssueToBackend } from './cieService';
@@ -191,7 +191,7 @@ export const citizenService = {
   },
 
   async getMyIssues(filter?: 'ALL' | 'ACTIVE' | 'IN_PROGRESS' | 'RESOLVED'): Promise<CivicIssue[]> {
-    let list = await issueService.getIssues();
+    let list = await api.getIssues();
 
     if (filter && filter !== 'ALL') {
       if (filter === 'ACTIVE') {
@@ -207,14 +207,11 @@ export const citizenService = {
   },
 
   async getIssue(id: string): Promise<CivicIssue | undefined> {
-    return issueService.getIssue(id);
+    return api.getIssueById(id);
   },
 
   async submitIssue(payload: CitizenIssuePayload): Promise<CivicIssue> {
-    const allIssues = await issueService.getIssues();
     const profile = loadProfile();
-    const newId = `ISS-${1024 + allIssues.length + 1}`;
-
     const identityMode: CitizenIdentityMode = payload.identity_mode || profile.identity_mode || 'ANONYMOUS';
     const isAnonymous = identityMode === 'ANONYMOUS';
     
@@ -234,8 +231,7 @@ export const citizenService = {
     profile.reports_count = (profile.reports_count || 18) + 1;
     saveProfile(profile);
 
-    const newIssue: CivicIssue = {
-      id: newId,
+    const issueDraft: Partial<CivicIssue> = {
       title: payload.title || `${payload.category} issue reported near ${payload.ward}`,
       description: payload.description,
       category: payload.category,
@@ -243,12 +239,6 @@ export const citizenService = {
       ward_number: payload.ward_number,
       coordinates: [payload.latitude, payload.longitude],
       address: payload.landmark ? `${payload.landmark}, ${payload.ward}, Kopargaon` : `${payload.ward}, Kopargaon`,
-      submitted_at: new Date().toISOString(),
-      age_days: 0,
-      status: 'PRIORITIZED', // Auto-prioritized by CIE for officer review
-      priority_score: 87,
-      priority_level: 'CRITICAL',
-      population_affected: 1200,
       citizen_name: profile.real_name,
       citizen_phone: profile.phone,
       identity_mode: identityMode,
@@ -257,83 +247,29 @@ export const citizenService = {
       before_photos: payload.photoUrl
         ? [payload.photoUrl]
         : ['https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=600&q=80'],
-      after_photos: [
-        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80',
-      ],
       factors: {
         severity: 90,
         urgency: 85,
         population_affected: 95,
         health_safety: 90,
         location_sensitivity: 80,
-        complaint_age_days: 70,
+        complaint_age_days: 0,
       },
-      recommendation: {
-        recommended_action: 'Deploy Hydraulic Compactor (Vehicle 2) and 2 sanitation workers for waste clearance.',
-        assigned_team_type: 'Sanitation Rapid Response Unit 1',
-        required_workers: 2,
-        required_vehicles: 1,
-        vehicle_type: 'Vehicle 2 (Hydraulic Compactor)',
-        estimated_cost: 8000,
-        rationales: [
-          'High health impact due to organic decomposition near vegetable market',
-          '1,200 people affected daily across commercial zone',
-          'Unresolved for 3 days with escalating public hazard',
-          'Located near a primary market with dense pedestrian footfall',
-          'Requires only 2 workers and fits within current available budget and fleet capacity'
-        ],
-        resource_impact: {
-          budget_required: 8000,
-          budget_available: 42000,
-          workers_required: 2,
-          workers_available: 18,
-          vehicles_required: 1,
-          vehicles_available: 6,
-        }
-      }
     };
 
-    // Post to FastAPI backend for database persistence and immediate CIE evaluation
-    try {
-      const backendPayload = transformCivicIssueToBackend(newIssue);
-      const res = await fetch(API_ENDPOINTS.ISSUES, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(backendPayload),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'PENDING_RECOVERY') {
-          newIssue.status = 'PENDING_RECOVERY';
-          newIssue.operation_id = data.operation_id;
-          newIssue.recovery_queued = true;
-        } else if (data?.cie_result?.mcda_rankings?.length) {
-          const matchingRank = data.cie_result.mcda_rankings.find((r: any) => r.issue_id === newId);
-          if (matchingRank) {
-            newIssue.priority_score = matchingRank.composite_score;
-            newIssue.priority_level = matchingRank.priority_level;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn(`FastAPI backend issues endpoint offline, issue ${newId} saved locally:`, err);
-    }
-
-    allIssues.unshift(newIssue);
-    localStorage.setItem('kopargov_unified_issues_v2', JSON.stringify(allIssues));
-    window.dispatchEvent(new Event('kopargov_state_updated'));
-    window.dispatchEvent(new Event('kopargov_resilience_updated'));
+    // Create via canonical api store
+    const newIssue = await api.createIssue(issueDraft);
 
     // Create confirmation notification
     const notifications = loadNotifications();
     const isQueued = newIssue.status === 'PENDING_RECOVERY';
     notifications.unshift({
       id: `NOTIF-${Date.now()}`,
-      issue_id: newId,
+      issue_id: newIssue.id,
       title: isQueued ? '⚠️ Complaint Queued (Degraded Mode)' : 'Complaint Received',
       message: isQueued
-        ? `Your complaint ${newId} has been safely queued in the resilience operation journal (Op #${newIssue.operation_id || 'OP-PENDING'}). It will be committed once data services are restored.`
-        : `Your complaint ${newId} has been successfully submitted as ${reporterDisplayName}.`,
+        ? `Your complaint ${newIssue.id} has been safely queued in the resilience operation journal (Op #${newIssue.operation_id || 'OP-PENDING'}). It will be committed once data services are restored.`
+        : `Your complaint ${newIssue.id} has been successfully submitted as ${reporterDisplayName}.`,
       timestamp: new Date().toISOString(),
       type: 'INFO',
       read: false,

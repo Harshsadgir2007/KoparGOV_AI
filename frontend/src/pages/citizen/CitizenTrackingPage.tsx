@@ -289,7 +289,7 @@ export const CitizenTrackingPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="rounded-xl overflow-hidden border border-slate-300 bg-slate-100">
               <img
-                src={issue.before_photos[0] || 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=600&q=80'}
+                src={issue.before_photos?.[0] || 'https://images.unsplash.com/photo-1605600659873-d808a13e4d2a?auto=format&fit=crop&w=600&q=80'}
                 alt="Before"
                 className="w-full h-28 sm:h-36 object-cover"
               />
@@ -308,36 +308,43 @@ export const CitizenTrackingPage: React.FC = () => {
         </div>
       )}
 
-      {/* Geocoded Location Map */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-sky-700" />
-          <span>Reported Location</span>
-        </h2>
-        <p className="text-xs text-slate-600">{issue.address}</p>
+        {/* Geocoded Location Map */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-sky-700" />
+            <span>Reported Location</span>
+          </h2>
+          <p className="text-xs text-slate-600">{issue.address || 'Kopargaon Municipal Area'}</p>
 
-        <div className="h-48 rounded-xl overflow-hidden border border-slate-200">
-          <MapContainer
-            center={issue.coordinates}
-            zoom={15}
-            scrollWheelZoom={false}
-            className="w-full h-full"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker position={issue.coordinates} icon={citizenMarkerIcon}>
-              <Popup>
-                <div className="p-1 text-xs">
-                  <strong>{issue.id}</strong>
-                  <p>{issue.address}</p>
-                </div>
-              </Popup>
-            </Marker>
-          </MapContainer>
+          {(() => {
+            const coords: [number, number] = (issue.coordinates && issue.coordinates.length === 2 && !isNaN(issue.coordinates[0]) && !isNaN(issue.coordinates[1]))
+              ? issue.coordinates
+              : [19.8917, 74.4789];
+            return (
+              <div className="h-48 rounded-xl overflow-hidden border border-slate-200">
+                <MapContainer
+                  center={coords}
+                  zoom={15}
+                  scrollWheelZoom={false}
+                  className="w-full h-full"
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={coords} icon={citizenMarkerIcon}>
+                    <Popup>
+                      <div className="p-1 text-xs">
+                        <strong>{issue.id}</strong>
+                        <p>{issue.address || 'Kopargaon'}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+            );
+          })()}
         </div>
-      </div>
     </div>
   );
 };

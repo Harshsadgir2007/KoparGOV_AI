@@ -55,6 +55,13 @@ from .auth import (
     AuthenticatedUser,
     OfficerAuthResponse,
 )
+from .verification import (
+    VerificationStatus,
+    SignalSeverity,
+    VerificationSignal,
+    VerificationResult,
+    OfficerVerificationOverrideRequest,
+)
 
 __all__ = [
     "PriorityLevel",
@@ -98,4 +105,9 @@ __all__ = [
     "UserProfile",
     "AuthenticatedUser",
     "OfficerAuthResponse",
+    "VerificationStatus",
+    "SignalSeverity",
+    "VerificationSignal",
+    "VerificationResult",
+    "OfficerVerificationOverrideRequest",
 ]

@@ -17,10 +17,12 @@ function loadRecommendations(): Record<string, CIERecommendationDetail> {
   return INITIAL_MOCK_RECOMMENDATIONS;
 }
 
-function saveRecommendations(data: Record<string, CIERecommendationDetail>) {
+function saveRecommendations(data: Record<string, CIERecommendationDetail>, emitEvent = true) {
   try {
     localStorage.setItem(RECOMMENDATIONS_STORAGE_KEY, JSON.stringify(data));
-    window.dispatchEvent(new Event('kopargov_state_updated'));
+    if (emitEvent) {
+      window.dispatchEvent(new Event('kopargov_state_updated'));
+    }
   } catch (e) {
     console.error('Failed to save recommendations', e);
   }
@@ -55,9 +57,9 @@ export const recommendationService = {
       evaluated.status = issue.status;
     }
 
-    // Persist evaluation
+    // Persist evaluation locally without triggering state update event loop
     storedData[cleanId] = evaluated;
-    saveRecommendations(storedData);
+    saveRecommendations(storedData, false);
 
     return evaluated;
   },

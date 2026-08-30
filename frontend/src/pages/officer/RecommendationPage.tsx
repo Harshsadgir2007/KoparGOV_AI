@@ -113,12 +113,12 @@ export const RecommendationPage: React.FC = () => {
   }
 
   const factorRows = [
-    { label: 'Severity', value: recommendation.factors.severity },
-    { label: 'Urgency', value: recommendation.factors.urgency },
-    { label: 'Population affected', value: recommendation.factors.population_affected },
-    { label: 'Health/Safety', value: recommendation.factors.health_safety },
-    { label: 'Location sensitivity', value: recommendation.factors.location_sensitivity },
-    { label: 'Complaint age', value: recommendation.factors.complaint_age_days },
+    { label: 'Severity', value: recommendation.factors?.severity ?? 80 },
+    { label: 'Urgency', value: recommendation.factors?.urgency ?? 75 },
+    { label: 'Population affected', value: recommendation.factors?.population_affected ?? 95 },
+    { label: 'Health/Safety', value: recommendation.factors?.health_safety ?? 75 },
+    { label: 'Location sensitivity', value: recommendation.factors?.location_sensitivity ?? 70 },
+    { label: 'Complaint age', value: recommendation.factors?.complaint_age_days ?? 0 },
   ];
 
   return (

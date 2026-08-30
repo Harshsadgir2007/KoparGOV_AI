@@ -58,10 +58,10 @@ export const CivicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   issue.factors = {
                     severity: r.factor_scores.normalized_severity,
                     urgency: r.factor_scores.normalized_urgency,
-                    population_affected: issue.population_affected,
+                    population_affected: r.factor_scores.normalized_population_affected ?? (issue.factors?.population_affected ?? 95),
                     health_safety: r.factor_scores.normalized_health_safety_impact,
                     location_sensitivity: r.factor_scores.normalized_location_sensitivity,
-                    complaint_age_days: issue.age_days,
+                    complaint_age_days: r.factor_scores.normalized_complaint_age ?? (issue.factors?.complaint_age_days ?? 0),
                   };
                 }
               }
