@@ -29,7 +29,7 @@ import { CitizenLeaderboardPage } from './pages/citizen/CitizenLeaderboardPage';
 import { CitizenProfilePage } from './pages/citizen/CitizenProfilePage';
 import { MobileUploadPage } from './pages/citizen/MobileUploadPage';
 
-import { ProtectedRoute } from './components/common/ProtectedRoute';
+// import { ProtectedRoute } from './components/common/ProtectedRoute';
 
 // Auth Page
 import { LoginPage } from './pages/auth/LoginPage';
@@ -44,14 +44,8 @@ export function App() {
               {/* Root redirect to Citizen Portal or Dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-              {/* Officer Portal Routes (Protected - Officers Only) */}
-              <Route
-                element={
-                  <ProtectedRoute allowedRoles={['OFFICER']}>
-                    <OfficerLayout />
-                  </ProtectedRoute>
-                }
-              >
+              {/* Officer Portal Routes */}
+              <Route element={<OfficerLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/issues" element={<IssuesPage />} />
                 <Route path="/issues/:id" element={<IssueDetailPage />} />

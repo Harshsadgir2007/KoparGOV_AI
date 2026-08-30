@@ -26,7 +26,7 @@ import { useToast } from '../../context/ToastContext';
 import { AlertTriangle } from 'lucide-react';
 
 export const CitizenLayout: React.FC = () => {
-  const { user, switchRole, loginAsSpecificOfficer } = useAuth();
+  const { user, switchRole } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<CitizenNotification[]>([]);
@@ -209,16 +209,13 @@ export const CitizenLayout: React.FC = () => {
 
             <div className="h-4 w-px bg-slate-700 mx-1" />
 
-            <button
-              onClick={() => {
-                loginAsSpecificOfficer('CHIEF_OFFICER');
-                navigate('/dashboard');
-              }}
-              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-slate-800 whitespace-nowrap transition-colors cursor-pointer"
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-bold hover:bg-slate-800 whitespace-nowrap transition-colors"
             >
               <span>Officer Portal</span>
               <ArrowRight className="w-3 h-3" />
-            </button>
+            </Link>
           </nav>
 
           {/* Mobile Right Icons */}
@@ -241,15 +238,12 @@ export const CitizenLayout: React.FC = () => {
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
               )}
             </button>
-            <button
-              onClick={() => {
-                loginAsSpecificOfficer('CHIEF_OFFICER');
-                navigate('/dashboard');
-              }}
-              className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded font-bold cursor-pointer"
+            <Link
+              to="/dashboard"
+              className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded font-bold"
             >
               Officer &rarr;
-            </button>
+            </Link>
           </div>
         </div>
       </header>
