@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -19,6 +19,8 @@ import { MapPage } from './pages/officer/MapPage';
 import { AnalyticsPage } from './pages/officer/AnalyticsPage';
 import { ScenarioSimulationPage } from './pages/officer/ScenarioSimulationPage';
 import { ContractorAccountabilityPage } from './pages/officer/ContractorAccountabilityPage';
+import { TrustVerificationPage } from './pages/officer/TrustVerificationPage';
+import { ChaosResiliencePage } from './pages/officer/ChaosResiliencePage';
 
 // Citizen Pages
 import { CitizenLandingPage } from './pages/citizen/CitizenLandingPage';
@@ -28,8 +30,6 @@ import { CitizenTrackingPage } from './pages/citizen/CitizenTrackingPage';
 import { CitizenLeaderboardPage } from './pages/citizen/CitizenLeaderboardPage';
 import { CitizenProfilePage } from './pages/citizen/CitizenProfilePage';
 import { MobileUploadPage } from './pages/citizen/MobileUploadPage';
-
-// import { ProtectedRoute } from './components/common/ProtectedRoute';
 
 // Auth Page
 import { LoginPage } from './pages/auth/LoginPage';
@@ -51,6 +51,8 @@ export function App() {
                 <Route path="/issues/:id" element={<IssueDetailPage />} />
                 <Route path="/recommendations" element={<RecommendationPage />} />
                 <Route path="/recommendations/:id" element={<RecommendationPage />} />
+                <Route path="/verification" element={<TrustVerificationPage />} />
+                <Route path="/resilience" element={<ChaosResiliencePage />} />
                 <Route path="/scenario" element={<ScenarioSimulationPage />} />
                 <Route path="/contractors" element={<ContractorAccountabilityPage />} />
                 <Route path="/assignments" element={<AssignmentsPage />} />

@@ -1,7 +1,22 @@
-import { VerificationResult, VerificationOverridePayload } from '../types/verification';
+﻿import { VerificationResult, VerificationOverridePayload } from '../types/verification';
 import { API_ENDPOINTS } from '../config/api';
 
 export const verificationService = {
+  /**
+   * Fetch all verification evaluations stored in the registry.
+   */
+  async listVerificationResults(): Promise<VerificationResult[]> {
+    try {
+      const response = await fetch(API_ENDPOINTS.VERIFICATION);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.warn('[VerificationService] Backend offline listing verifications:', err);
+    }
+    return [];
+  },
+
   /**
    * Fetch verification evaluation result for a civic issue.
    */

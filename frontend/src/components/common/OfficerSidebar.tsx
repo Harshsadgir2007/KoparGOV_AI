@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ShieldCheck,
   HardHat,
+  Zap,
 } from 'lucide-react';
 import { useCivic } from '../../context/CivicContext';
 import { useAuth } from '../../context/AuthContext';
@@ -49,6 +50,22 @@ export const OfficerSidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }
       badge: pendingRecsCount > 0 ? `${pendingRecsCount} Pending` : undefined,
       badgeColor: 'bg-sky-500/20 text-sky-300 border border-sky-400/30',
       activeBadgeColor: 'bg-white text-sky-900',
+    },
+    {
+      name: 'Trust & Verification',
+      href: '/verification',
+      icon: ShieldCheck,
+      badge: 'Challenge 2',
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+      activeBadgeColor: 'bg-emerald-100 text-emerald-900',
+    },
+    {
+      name: 'Blackout & Resilience',
+      href: '/resilience',
+      icon: Zap,
+      badge: 'Challenge 1',
+      badgeColor: 'bg-red-500/20 text-red-300 border border-red-500/30',
+      activeBadgeColor: 'bg-red-100 text-red-900',
     },
     {
       name: 'What-If Simulator',
