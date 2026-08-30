@@ -49,6 +49,12 @@ from .resilience import (
     ReconciliationDecision,
     ReconciliationRequest,
 )
+from .auth import (
+    OfficerRecord,
+    UserProfile,
+    AuthenticatedUser,
+    OfficerAuthResponse,
+)
 
 __all__ = [
     "PriorityLevel",
@@ -88,4 +94,8 @@ __all__ = [
     "ResilienceStatusResponse",
     "ReconciliationDecision",
     "ReconciliationRequest",
+    "OfficerRecord",
+    "UserProfile",
+    "AuthenticatedUser",
+    "OfficerAuthResponse",
 ]

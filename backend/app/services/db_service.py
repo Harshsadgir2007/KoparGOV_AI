@@ -41,6 +41,7 @@ _GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
     "notifications": {},
     "cie_results": {},
     "workflow": {},
+    "officers": {},
 }
 
 
@@ -403,4 +404,47 @@ class DatabaseService:
         else:
             doc = self.client.collection("users").document(uid).get()
             return doc.to_dict() if doc.exists else None
+
+    # --------------------------------------------------------------------------
+    # Officers Registry (Collection: 'officers/{firebase_uid}')
+    # --------------------------------------------------------------------------
+
+    def save_officer(self, officer_dict: Dict[str, Any]) -> str:
+        """Save or pre-provision a municipal officer in Firestore 'officers' collection."""
+        uid = officer_dict.get("uid")
+        if not uid:
+            raise ValueError("Officer record must have a valid Firebase UID.")
+        if self._using_mock:
+            self._mock_db.setdefault("officers", {})[uid] = officer_dict
+        else:
+            self.client.collection("officers").document(uid).set(officer_dict)
+        return uid
+
+    def get_officer(self, uid: str) -> Optional[Dict[str, Any]]:
+        """Retrieve an officer record by Firebase UID."""
+        if not uid:
+            return None
+        if self._using_mock:
+            return self._mock_db.setdefault("officers", {}).get(uid)
+        else:
+            doc = self.client.collection("officers").document(uid).get()
+            return doc.to_dict() if doc.exists else None
+
+    def list_officers(self) -> List[Dict[str, Any]]:
+        """List all pre-provisioned municipal officers."""
+        if self._using_mock:
+            return list(self._mock_db.setdefault("officers", {}).values())
+        else:
+            docs = self.client.collection("officers").stream()
+            return [doc.to_dict() for doc in docs]
+
+    def delete_officer(self, uid: str) -> bool:
+        """Remove an officer from registry."""
+        if not uid:
+            return False
+        if self._using_mock:
+            return bool(self._mock_db.setdefault("officers", {}).pop(uid, None))
+        else:
+            self.client.collection("officers").document(uid).delete()
+            return True
 

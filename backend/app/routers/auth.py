@@ -1,17 +1,21 @@
 """Authentication & Role-Based Access Control (RBAC) Router for KoparGov AI.
 
-Provides endpoints for:
-- Role presets discovery (`GET /api/auth/roles`)
-- Authentication / Session Login (`POST /api/auth/login`)
-- Active profile inspection (`GET /api/auth/me`)
-- Citizen account registration (`POST /api/auth/register`)
+Implements:
+- Officer Verification & Profile Resolution (`GET /api/auth/me`)
+- Verified Officer Check (`POST /api/auth/verify-officer`)
+- Role Presets Discovery (`GET /api/auth/roles`)
+- Citizen Registration & Login
+- Pre-provisioned Demo Officer Registry Seeding
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.core.auth_dependency import get_current_user, require_authenticated_user, require_officer
+from app.models.auth import AuthenticatedUser, OfficerAuthResponse, OfficerRecord, UserProfile
 from app.services.db_service import DatabaseService
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & RBAC"])
@@ -41,6 +45,7 @@ class LoginRequest(BaseModel):
     officer_id: Optional[str] = Field(default=None, description="Officer ID or full name")
     phone: Optional[str] = Field(default=None, description="Citizen phone number")
     email: Optional[str] = Field(default=None, description="Officer/Citizen email")
+    password: Optional[str] = Field(default=None, description="Citizen/Officer password (handled by Firebase in production)")
 
 
 class LoginResponse(BaseModel):
@@ -53,6 +58,7 @@ class LoginResponse(BaseModel):
     ward_number: Optional[int] = None
     sanction_limit: str
     permissions: List[str]
+    is_officer: bool = False
 
 
 class CitizenRegisterRequest(BaseModel):
@@ -61,7 +67,21 @@ class CitizenRegisterRequest(BaseModel):
     phone: str
     ward: str
     ward_number: int = 5
+    email: Optional[str] = None
     address: Optional[str] = None
+
+
+class PreProvisionOfficerRequest(BaseModel):
+    """Admin / Setup request to pre-provision an officer in Firestore officers/{uid}."""
+    uid: str = Field(..., description="Firebase Authentication UID")
+    name: str = Field(..., description="Officer name")
+    employeeId: str = Field(..., description="Employee ID e.g. KOP-DEMO-001")
+    designation: str = Field(..., description="Designation e.g. Ward Officer")
+    department: str = Field(..., description="Department e.g. Sanitation")
+    ward: Optional[str] = "Ward 5"
+    email: str = Field(..., description="Officer email")
+    verified: bool = True
+    active: bool = True
 
 
 # Pre-configured role definitions for Kopargaon Municipal Administration
@@ -121,6 +141,54 @@ MUNICIPAL_ROLES: Dict[str, RolePreset] = {
 }
 
 
+def _seed_demo_officers():
+    """Seed demo officer registry in DB for hackathon evaluation."""
+    demo_officers = [
+        {
+            "uid": "DEMO-OFFICER-UID",
+            "name": "Demo Municipal Officer",
+            "employeeId": "KOP-DEMO-001",
+            "designation": "Chief Municipal Officer (CMO)",
+            "department": "Kopargaon Municipal Administration",
+            "ward": "Ward 5",
+            "email": "officer@kopargaon.gov.in",
+            "verified": True,
+            "active": True,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        },
+        {
+            "uid": "OFFICER-SUNIL-01",
+            "name": "Shri. Sunil Jadhav",
+            "employeeId": "KOP-MUN-002",
+            "designation": "Junior Engineer & Ward 5 Field In-Charge",
+            "department": "Ward 5 Field Administration",
+            "ward": "Ward 5",
+            "email": "sunil.jadhav@kopargaon.gov.in",
+            "verified": True,
+            "active": True,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        },
+        {
+            "uid": "OFFICER-RAJESH-CMO",
+            "name": "Shri. Rajesh Kulkarni",
+            "employeeId": "KOP-MUN-001",
+            "designation": "Chief Municipal Officer (CMO)",
+            "department": "Kopargaon Municipal Council (KMC)",
+            "ward": "City-Wide",
+            "email": "rajesh.kulkarni@kopargaon.gov.in",
+            "verified": True,
+            "active": True,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        },
+    ]
+
+    for off in demo_officers:
+        if not db_service.get_officer(off["uid"]):
+            db_service.save_officer(off)
+
+_seed_demo_officers()
+
+
 # ------------------------------------------------------------------------------
 # Endpoints
 # ------------------------------------------------------------------------------
@@ -148,17 +216,37 @@ async def login(request: LoginRequest) -> LoginResponse:
     preset = MUNICIPAL_ROLES.get(role_key)
 
     if not preset:
-        # Check custom user in db
         preset = MUNICIPAL_ROLES["CITIZEN"]
 
     user_name = request.officer_id or preset.name
     session_token = f"kpg-token-{uuid.uuid4().hex[:12]}"
 
+    # Determine officer status strictly by registry check
+    officer_doc = None
+    for o in db_service.list_officers():
+        if (
+            o.get("name") == user_name
+            or o.get("email") == request.email
+            or o.get("employeeId") == request.officer_id
+            or o.get("uid") == request.officer_id
+        ):
+            officer_doc = o
+            break
+
+    is_officer = bool(
+        officer_doc
+        and officer_doc.get("verified") is True
+        and officer_doc.get("active") is True
+    )
+
+    resolved_role = "officer" if is_officer else "citizen"
+
     # Record user session profile
     user_record = {
-        "uid": str(uuid.uuid4()),
+        "uid": officer_doc.get("uid") if officer_doc else f"USR-{uuid.uuid4().hex[:6]}",
         "name": user_name,
-        "role": preset.role,
+        "email": request.email or preset.email,
+        "role": resolved_role,
         "designation": preset.designation,
         "department": preset.department,
         "ward_number": preset.ward_number,
@@ -175,33 +263,70 @@ async def login(request: LoginRequest) -> LoginResponse:
         ward_number=preset.ward_number,
         sanction_limit=preset.sanction_limit,
         permissions=preset.permissions,
+        is_officer=is_officer,
     )
 
 
 @router.get(
     "/me",
-    response_model=LoginResponse,
-    summary="Get active authenticated user profile",
+    response_model=OfficerAuthResponse,
+    summary="Get active authenticated user profile and verify officer status",
     status_code=status.HTTP_200_OK,
 )
-async def get_current_user(
-    x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
-    x_officer_id: Optional[str] = Header(None, alias="X-Officer-Id"),
-) -> LoginResponse:
-    """Retrieve active session details based on role and identity headers."""
-    role_key = (x_officer_role or "CITIZEN").upper()
-    preset = MUNICIPAL_ROLES.get(role_key, MUNICIPAL_ROLES["CITIZEN"])
-    name = x_officer_id or preset.name
+async def get_current_user_profile(
+    user: Optional[AuthenticatedUser] = Depends(get_current_user),
+) -> OfficerAuthResponse:
+    """Retrieve active session details, verifying token and checking Firestore officers/{uid}."""
+    if not user:
+        # Fallback anonymous guest citizen
+        return OfficerAuthResponse(
+            authenticated=False,
+            uid="anonymous-guest",
+            email=None,
+            role="citizen",
+            is_officer=False,
+            officer=None,
+            permissions=["submit_issue", "view_map"],
+        )
 
-    return LoginResponse(
-        token="active-session-token",
-        role=preset.role,
-        name=name,
-        designation=preset.designation,
-        department=preset.department,
-        ward_number=preset.ward_number,
-        sanction_limit=preset.sanction_limit,
-        permissions=preset.permissions,
+    permissions = (
+        ["view_issues", "approve_workflow", "allocate_resources", "manage_contractors", "view_analytics", "view_map"]
+        if user.is_officer
+        else ["submit_issue", "view_public_issues", "track_complaint", "view_map"]
+    )
+
+    return OfficerAuthResponse(
+        authenticated=True,
+        uid=user.uid,
+        email=user.email,
+        role=user.role,
+        is_officer=user.is_officer,
+        officer=user.officer_profile,
+        permissions=permissions,
+    )
+
+
+@router.post(
+    "/verify-officer",
+    response_model=OfficerAuthResponse,
+    summary="Strictly verify whether authenticated caller is an authorized officer",
+    status_code=status.HTTP_200_OK,
+)
+async def verify_officer_endpoint(
+    officer: AuthenticatedUser = Depends(require_officer),
+) -> OfficerAuthResponse:
+    """Enforce that caller has a valid token AND exists in officers/{uid} with verified=true, active=true.
+    
+    Returns HTTP 403 Forbidden if not authorized.
+    """
+    return OfficerAuthResponse(
+        authenticated=True,
+        uid=officer.uid,
+        email=officer.email,
+        role="officer",
+        is_officer=True,
+        officer=officer.officer_profile,
+        permissions=["view_issues", "approve_workflow", "allocate_resources", "manage_contractors", "view_analytics", "view_map"],
     )
 
 
@@ -211,16 +336,49 @@ async def get_current_user(
     status_code=status.HTTP_201_CREATED,
 )
 async def register_citizen(request: CitizenRegisterRequest) -> Dict[str, Any]:
-    """Register a new citizen profile."""
+    """Register a new citizen profile in Firestore users collection."""
     uid = f"CITIZEN-{uuid.uuid4().hex[:6]}"
     record = {
         "uid": uid,
         "name": request.name,
         "phone": request.phone,
+        "email": request.email,
         "ward": request.ward,
         "ward_number": request.ward_number,
         "address": request.address,
-        "role": "CITIZEN",
+        "role": "citizen",
+        "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     db_service.save_user(record)
     return {"status": "registered", "user": record}
+
+
+@router.post(
+    "/officers/pre-provision",
+    response_model=OfficerRecord,
+    summary="Pre-provision a verified municipal officer in Firestore (Admin only)",
+    status_code=status.HTTP_201_CREATED,
+)
+async def pre_provision_officer(
+    request: PreProvisionOfficerRequest,
+    current_officer: AuthenticatedUser = Depends(require_officer),
+) -> OfficerRecord:
+    """Pre-provision an officer record mapped by Firebase UID in officers/{uid}."""
+    record_dict = request.model_dump()
+    record_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+    db_service.save_officer(record_dict)
+    return OfficerRecord(**record_dict)
+
+
+@router.get(
+    "/officers",
+    response_model=List[OfficerRecord],
+    summary="List all pre-provisioned municipal officers (Officer only)",
+    status_code=status.HTTP_200_OK,
+)
+async def list_officers_endpoint(
+    current_officer: AuthenticatedUser = Depends(require_officer),
+) -> List[OfficerRecord]:
+    """List all registered officers in the municipal registry."""
+    raw_list = db_service.list_officers()
+    return [OfficerRecord(**o) for o in raw_list]

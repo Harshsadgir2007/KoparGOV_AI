@@ -16,10 +16,10 @@ export interface OfficerPreset {
 export interface CitizenAccount {
   name: string;
   phone: string;
+  email?: string;
   ward: string;
   ward_number: number;
   registered_at: string;
-  password_hash?: string;
 }
 
 export const OFFICER_PRESETS: Record<AuthorityRole, OfficerPreset> = {
@@ -70,6 +70,7 @@ const INITIAL_CITIZENS: CitizenAccount[] = [
   {
     name: 'Rahul Patil',
     phone: '+91 98220 44112',
+    email: 'rahul.patil@example.com',
     ward: 'Ward 5 - Shivaji Chowk',
     ward_number: 5,
     registered_at: '2026-08-01T10:00:00Z',
@@ -77,6 +78,7 @@ const INITIAL_CITIZENS: CitizenAccount[] = [
   {
     name: 'Pooja Deshmukh',
     phone: '+91 94220 88990',
+    email: 'pooja.deshmukh@example.com',
     ward: 'Ward 3 - Subhash Road',
     ward_number: 3,
     registered_at: '2026-08-10T11:30:00Z',
@@ -91,16 +93,26 @@ const DEFAULT_OFFICER: UserSession = {
   officer_role: 'CHIEF_OFFICER',
 };
 
-const AUTH_STORAGE_KEY = 'kopargov_auth_session_v2';
-const CITIZENS_STORAGE_KEY = 'kopargov_registered_citizens_v1';
+const AUTH_STORAGE_KEY = 'kopargov_auth_session_v3';
+const CITIZENS_STORAGE_KEY = 'kopargov_registered_citizens_v2';
+const TOKEN_STORAGE_KEY = 'kopargov_auth_token_v3';
+
+interface AuthResult {
+  success: boolean;
+  error?: string;
+}
 
 interface AuthContextType {
   user: UserSession;
+  token: string | null;
   isAuthenticated: boolean;
+  isOfficer: boolean;
   loginAsSpecificOfficer: (roleType: AuthorityRole) => void;
   loginAsOfficer: (name?: string, designation?: string, roleType?: AuthorityRole) => void;
+  loginOfficerWithCredentials: (email: string, password?: string) => Promise<AuthResult>;
   loginCitizen: (phone: string, name?: string) => boolean;
-  registerCitizen: (name: string, phone: string, ward: string) => boolean;
+  loginCitizenWithCredentials: (email: string, password?: string) => Promise<AuthResult>;
+  registerCitizen: (name: string, phone: string, ward: string, email?: string) => Promise<AuthResult>;
   logout: () => void;
   switchRole: () => void;
   getAuthHeaders: () => Record<string, string>;
@@ -109,6 +121,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem(TOKEN_STORAGE_KEY) || 'mock-token-UID-AUTH-OFFICER-001';
+  });
+
   const [user, setUser] = useState<UserSession>(() => {
     const saved = localStorage.getItem(AUTH_STORAGE_KEY);
     if (saved) {
@@ -125,29 +141,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('kopargov_is_authenticated') !== 'false';
   });
 
+  const isOfficer = user.role === 'OFFICER';
+
   useEffect(() => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     localStorage.setItem('kopargov_is_authenticated', isAuthenticated ? 'true' : 'false');
-
-    // Best effort Firebase Auth background session connection
-    const connectFirebaseAuth = async () => {
-      try {
-        const { auth, isFirebaseConfigured } = await import('../config/firebase');
-        if (auth && isFirebaseConfigured) {
-          const { signInAnonymously } = await import('firebase/auth');
-          if (!auth.currentUser) {
-            await signInAnonymously(auth);
-          }
-        }
-      } catch (err) {
-        // Silent fallback for hackathon local mode
-      }
-    };
-    connectFirebaseAuth();
-  }, [user, isAuthenticated]);
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  }, [user, isAuthenticated, token]);
 
   const loginAsSpecificOfficer = (roleType: AuthorityRole) => {
     const preset = OFFICER_PRESETS[roleType] || OFFICER_PRESETS.CHIEF_OFFICER;
+    const sessionToken = `mock-token-UID-AUTH-OFFICER-${roleType}`;
+    setToken(sessionToken);
     setUser({
       role: 'OFFICER',
       name: preset.name,
@@ -165,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     roleType: AuthorityRole = 'CHIEF_OFFICER'
   ) => {
     const preset = OFFICER_PRESETS[roleType] || OFFICER_PRESETS.CHIEF_OFFICER;
+    const sessionToken = `mock-token-UID-AUTH-OFFICER-001`;
+    setToken(sessionToken);
     setUser({
       role: 'OFFICER',
       name: name || preset.name,
@@ -174,6 +185,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ward_number: preset.ward_number,
     });
     setIsAuthenticated(true);
+  };
+
+  const loginOfficerWithCredentials = async (email: string, password = ''): Promise<AuthResult> => {
+    try {
+      let resolvedToken = `mock-token-${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      // 1. If Firebase Client is configured, attempt real Firebase Sign-in
+      try {
+        const { auth, isFirebaseConfigured } = await import('../config/firebase');
+        if (auth && isFirebaseConfigured) {
+          const { signInWithEmailAndPassword } = await import('firebase/auth');
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          resolvedToken = await userCredential.user.getIdToken();
+        }
+      } catch (fbErr: any) {
+        console.warn('Direct Firebase Auth sign-in failed or fallback in use:', fbErr.message);
+      }
+
+      // 2. Call backend /api/auth/me with Bearer token to verify officer registry status
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${resolvedToken}`,
+          'X-Officer-Role': 'CHIEF_OFFICER',
+          'X-Officer-Id': email,
+        },
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errJson.detail || 'Authentication failed. Please verify credentials.',
+        };
+      }
+
+      const data = await res.json();
+      if (data && data.is_officer) {
+        const officerData = data.officer || {};
+        setToken(resolvedToken);
+        setUser({
+          role: 'OFFICER',
+          name: officerData.name || 'Municipal Officer',
+          designation: officerData.designation || 'Municipal Officer',
+          department: officerData.department || 'Municipal Administration',
+          officer_role: 'CHIEF_OFFICER',
+        });
+        setIsAuthenticated(true);
+        return { success: true };
+      } else {
+        // Authenticated as citizen or non-officer
+        return {
+          success: false,
+          error: 'You are not authorized as a municipal officer. Officer accounts must be pre-provisioned by municipal IT.',
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Authentication network error.',
+      };
+    }
   };
 
   const loginCitizen = (phone: string, fallbackName = 'Rahul Patil'): boolean => {
@@ -187,6 +260,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const cleanPhone = phone.trim();
     const found = citizens.find(c => c.phone === cleanPhone || c.phone.includes(cleanPhone.slice(-10)));
+
+    const citizenToken = `citizen-token-${cleanPhone.replace(/[^0-9]/g, '') || '9822044112'}`;
+    setToken(citizenToken);
 
     if (found) {
       setUser({
@@ -207,7 +283,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const registerCitizen = (name: string, phone: string, ward: string): boolean => {
+  const loginCitizenWithCredentials = async (emailOrPhone: string, password = ''): Promise<AuthResult> => {
+    const isEmail = emailOrPhone.includes('@');
+    if (!isEmail) {
+      loginCitizen(emailOrPhone);
+      return { success: true };
+    }
+
+    let citizenToken = `citizen-token-${emailOrPhone.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    try {
+      const { auth, isFirebaseConfigured } = await import('../config/firebase');
+      if (auth && isFirebaseConfigured) {
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const userCredential = await signInWithEmailAndPassword(auth, emailOrPhone, password);
+        citizenToken = await userCredential.user.getIdToken();
+      }
+    } catch (fbErr: any) {
+      console.warn('Firebase citizen sign-in fallback:', fbErr.message);
+    }
+
+    setToken(citizenToken);
+    setUser({
+      role: 'CITIZEN',
+      name: emailOrPhone.split('@')[0] || 'Registered Citizen',
+      phone: '+91 98220 44112',
+      ward_number: 5,
+    });
+    setIsAuthenticated(true);
+    return { success: true };
+  };
+
+  const registerCitizen = async (
+    name: string,
+    phone: string,
+    ward: string,
+    email?: string
+  ): Promise<AuthResult> => {
     let citizens: CitizenAccount[] = INITIAL_CITIZENS;
     try {
       const stored = localStorage.getItem(CITIZENS_STORAGE_KEY);
@@ -220,6 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newCitizen: CitizenAccount = {
       name: name.trim(),
       phone: phone.trim(),
+      email: email?.trim(),
       ward: ward.trim(),
       ward_number: wardNum,
       registered_at: new Date().toISOString(),
@@ -228,6 +340,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     citizens.push(newCitizen);
     localStorage.setItem(CITIZENS_STORAGE_KEY, JSON.stringify(citizens));
 
+    const citizenToken = `citizen-token-${newCitizen.phone.replace(/[^0-9]/g, '')}`;
+    setToken(citizenToken);
+
     setUser({
       role: 'CITIZEN',
       name: newCitizen.name,
@@ -235,16 +350,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ward_number: newCitizen.ward_number,
     });
     setIsAuthenticated(true);
-    return true;
+    return { success: true };
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    setToken(null);
     setUser({
       role: 'CITIZEN',
       name: 'Unauthenticated User',
     });
     localStorage.setItem('kopargov_is_authenticated', 'false');
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
   };
 
   const switchRole = () => {
@@ -256,26 +373,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getAuthHeaders = (): Record<string, string> => {
-    if (user.role === 'OFFICER') {
-      return {
-        'X-Officer-Role': user.officer_role || 'CHIEF_OFFICER',
-        'X-Officer-ID': user.name || 'Officer',
-      };
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    return {
-      'X-Officer-Role': 'CITIZEN',
-      'X-Officer-ID': user.phone || 'Citizen',
-    };
+    if (user.role === 'OFFICER') {
+      headers['X-Officer-Role'] = user.officer_role || 'CHIEF_OFFICER';
+      headers['X-Officer-ID'] = user.name || 'Officer';
+    } else {
+      headers['X-Officer-Role'] = 'CITIZEN';
+      headers['X-Officer-ID'] = user.phone || 'Citizen';
+    }
+    return headers;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         isAuthenticated,
+        isOfficer,
         loginAsOfficer,
         loginAsSpecificOfficer,
+        loginOfficerWithCredentials,
         loginCitizen,
+        loginCitizenWithCredentials,
         registerCitizen,
         logout,
         switchRole,

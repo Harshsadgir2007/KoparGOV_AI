@@ -12,7 +12,7 @@ Guarantees:
 
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.models.workflow import (
     ApproveWorkflowRequest,
@@ -34,9 +34,14 @@ db_service = DatabaseService()
 resilience_service = get_resilience_service()
 
 
+from app.core.auth_dependency import get_current_user
+from app.models.auth import AuthenticatedUser
+
+
 def _verify_officer_authorization(
     x_officer_role: Optional[str] = None,
     officer_id: Optional[str] = None,
+    current_user: Optional[AuthenticatedUser] = None,
 ) -> None:
     """Enforce that only authenticated municipal officers can execute workflow transitions."""
     if x_officer_role and x_officer_role.upper() == "CITIZEN":
@@ -44,6 +49,15 @@ def _verify_officer_authorization(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Citizen account cannot perform municipal officer workflow actions.",
         )
+
+    if current_user is not None:
+        if not current_user.is_officer:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: Authenticated user is not an authorized municipal officer.",
+            )
+        return
+
     if officer_id is not None and not str(officer_id).strip():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -92,9 +106,10 @@ async def approve_issue(
     issue_id: str,
     request: ApproveWorkflowRequest,
     x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Approve a PENDING or RECOMMENDED civic issue for resolution."""
-    _verify_officer_authorization(x_officer_role, request.officer_id)
+    _verify_officer_authorization(x_officer_role, request.officer_id, current_user)
 
     workflow = _get_or_create_workflow(issue_id)
 
@@ -144,9 +159,10 @@ async def reject_issue(
     issue_id: str,
     request: RejectWorkflowRequest,
     x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Reject a PENDING or RECOMMENDED civic issue with justification."""
-    _verify_officer_authorization(x_officer_role, request.officer_id)
+    _verify_officer_authorization(x_officer_role, request.officer_id, current_user)
 
     workflow = _get_or_create_workflow(issue_id)
 
@@ -194,9 +210,10 @@ async def assign_issue(
     issue_id: str,
     request: AssignWorkflowRequest,
     x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Assign an APPROVED civic issue to a designated field team."""
-    _verify_officer_authorization(x_officer_role, request.assigned_team)
+    _verify_officer_authorization(x_officer_role, request.assigned_team, current_user)
 
     workflow = _get_or_create_workflow(issue_id)
 
@@ -246,10 +263,11 @@ async def start_issue(
     issue_id: str,
     request: Optional[StartWorkflowRequest] = None,
     x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Mark an ASSIGNED civic issue as IN_PROGRESS by field teams."""
     if request and request.officer_id:
-        _verify_officer_authorization(x_officer_role, request.officer_id)
+        _verify_officer_authorization(x_officer_role, request.officer_id, current_user)
 
     workflow = _get_or_create_workflow(issue_id)
 
@@ -298,10 +316,11 @@ async def resolve_issue(
     issue_id: str,
     request: Optional[ResolveWorkflowRequest] = None,
     x_officer_role: Optional[str] = Header(None, alias="X-Officer-Role"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Mark an IN_PROGRESS civic issue as RESOLVED with proof."""
     if request and request.officer_id:
-        _verify_officer_authorization(x_officer_role, request.officer_id)
+        _verify_officer_authorization(x_officer_role, request.officer_id, current_user)
 
     workflow = _get_or_create_workflow(issue_id)
 

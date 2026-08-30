@@ -1,7 +1,7 @@
 """Municipal Recommendations and Decision Approvals API Router."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 
 from app.models.decision import DecisionExplanation, MCDARanking
@@ -129,6 +129,10 @@ async def get_recommendation(issue_id: str) -> RecommendationItem:
     )
 
 
+from app.core.auth_dependency import get_current_user
+from app.models.auth import AuthenticatedUser
+
+
 @router.post(
     "/{issue_id}/approve",
     response_model=WorkflowRecord,
@@ -140,6 +144,7 @@ async def approve_recommendation_endpoint(
     payload: Optional[ApproveWorkflowRequest] = None,
     x_officer_role: Optional[str] = Header(default=None, alias="X-Officer-Role"),
     officer_id: Optional[str] = Header(default=None, alias="X-Officer-Id"),
+    current_user: Optional[AuthenticatedUser] = Depends(get_current_user),
 ) -> WorkflowRecord:
     """Officer human-in-the-loop approval endpoint."""
     req = payload or ApproveWorkflowRequest(officer_id=officer_id or "Municipal Officer")
@@ -149,4 +154,5 @@ async def approve_recommendation_endpoint(
         issue_id=issue_id,
         request=req,
         x_officer_role=x_officer_role,
+        current_user=current_user,
     )
