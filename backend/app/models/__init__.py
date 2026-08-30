@@ -50,6 +50,14 @@ from .resilience import (
     ReconciliationRequest,
 )
 
+from .verification import (
+    VerificationStatus,
+    SignalSeverity,
+    VerificationSignal,
+    VerificationResult,
+    OfficerVerificationOverrideRequest,
+)
+
 __all__ = [
     "PriorityLevel",
     "CivicIssue",
@@ -88,4 +96,9 @@ __all__ = [
     "ResilienceStatusResponse",
     "ReconciliationDecision",
     "ReconciliationRequest",
+    "VerificationStatus",
+    "SignalSeverity",
+    "VerificationSignal",
+    "VerificationResult",
+    "OfficerVerificationOverrideRequest",
 ]

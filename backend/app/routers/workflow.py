@@ -98,7 +98,13 @@ async def approve_issue(
 
     workflow = _get_or_create_workflow(issue_id)
 
-    allowed_states = [WorkflowStatus.PENDING.value, WorkflowStatus.RECOMMENDED.value]
+    allowed_states = [
+        WorkflowStatus.PENDING.value,
+        WorkflowStatus.RECOMMENDED.value,
+        "PRIORITIZED",
+        "REPORTED",
+        "VALIDATED",
+    ]
     if workflow.status not in allowed_states:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -150,7 +156,13 @@ async def reject_issue(
 
     workflow = _get_or_create_workflow(issue_id)
 
-    allowed_states = [WorkflowStatus.PENDING.value, WorkflowStatus.RECOMMENDED.value]
+    allowed_states = [
+        WorkflowStatus.PENDING.value,
+        WorkflowStatus.RECOMMENDED.value,
+        "PRIORITIZED",
+        "REPORTED",
+        "VALIDATED",
+    ]
     if workflow.status not in allowed_states:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

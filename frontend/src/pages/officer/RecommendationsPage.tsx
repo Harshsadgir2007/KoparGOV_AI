@@ -42,6 +42,22 @@ export const RecommendationsPage: React.FC = () => {
     return actionableIssues[0] || issues[0];
   });
 
+  React.useEffect(() => {
+    if (selectedIssueId) {
+      const found = issues.find(i => i.id === selectedIssueId);
+      if (found) {
+        setActiveIssue(found);
+        return;
+      }
+    }
+    const current = issues.find(i => i.id === activeIssue?.id);
+    if (current) {
+      setActiveIssue(current);
+    } else if (actionableIssues[0]) {
+      setActiveIssue(actionableIssues[0]);
+    }
+  }, [selectedIssueId, issues]);
+
   // Modal State for Official Approval
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);

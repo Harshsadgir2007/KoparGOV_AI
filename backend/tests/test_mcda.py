@@ -78,6 +78,51 @@ def test_mcda_exact_example_variant_83_25(mcda_engine):
     assert result.priority_level == PriorityLevel.CRITICAL
 
 
+def test_mcda_iss1031_exact_score_80(mcda_engine):
+    """Test ISS-1031 exact factor calculation:
+    Severity=90 (wt 0.25 -> 22.5)
+    Urgency=85 (wt 0.20 -> 17.0)
+    Population normalized=95 (wt 0.20 -> 19.0)
+    Health/Safety=90 (wt 0.15 -> 13.5)
+    Location=80 (wt 0.10 -> 8.0)
+    Complaint age=0 (wt 0.10 -> 0.0)
+    Composite = 22.5 + 17.0 + 19.0 + 13.5 + 8.0 + 0.0 = 80.0 -> CRITICAL
+    """
+    issue = CivicIssue(
+        id="ISS-1031",
+        title="Garbage Accumulation near market entrance",
+        severity=90.0,
+        urgency=85.0,
+        population_affected=95.0,
+        health_safety_impact=90.0,
+        location_sensitivity=80.0,
+        complaint_age=0.0,
+    )
+    result = mcda_engine.evaluate_issue(
+        issue=issue,
+        max_population_ref=100.0,  # 95/100 * 100 = 95.0
+        max_age_ref=10.0,          # 0/10 * 100 = 0.0
+    )
+
+    factors = result.factor_scores
+    assert factors.normalized_severity == 90.0
+    assert factors.normalized_urgency == 85.0
+    assert factors.normalized_population_affected == 95.0
+    assert factors.normalized_health_safety_impact == 90.0
+    assert factors.normalized_location_sensitivity == 80.0
+    assert factors.normalized_complaint_age == 0.0
+
+    assert factors.weighted_contributions["severity"] == 22.5
+    assert factors.weighted_contributions["urgency"] == 17.0
+    assert factors.weighted_contributions["population_affected"] == 19.0
+    assert factors.weighted_contributions["health_safety_impact"] == 13.5
+    assert factors.weighted_contributions["location_sensitivity"] == 8.0
+    assert factors.weighted_contributions["complaint_age"] == 0.0
+
+    assert result.composite_score == 80.0
+    assert result.priority_level == PriorityLevel.CRITICAL
+
+
 def test_mcda_low_score(mcda_engine):
     """Test a LOW priority issue (score 0-39)."""
     issue = CivicIssue(

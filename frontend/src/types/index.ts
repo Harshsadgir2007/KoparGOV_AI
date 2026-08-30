@@ -91,6 +91,7 @@ export interface CIERecommendationDetail {
 
 export * from './cie';
 export * from './resilience';
+export * from './verification';
 
 export interface CIERecommendation {
   recommended_action: string;
@@ -194,6 +195,7 @@ export interface CivicIssue {
   recommendation?: CIERecommendation;
   assignment?: AssignmentDetails;
   resolution?: ResolutionDetails;
+  verification?: import('./verification').VerificationResult;
   operation_id?: string;
   recovery_queued?: boolean;
 }

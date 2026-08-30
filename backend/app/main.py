@@ -16,6 +16,7 @@ from app.routers import (
     auth_router,
     map_router,
     notifications_router,
+    verification_router,
 )
 
 app = FastAPI(
@@ -46,6 +47,7 @@ app.include_router(analytics_router)
 app.include_router(roads_router)
 app.include_router(map_router)
 app.include_router(notifications_router)
+app.include_router(verification_router)
 
 
 @app.get("/", summary="Root service metadata endpoint")

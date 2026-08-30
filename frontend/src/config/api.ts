@@ -3,9 +3,9 @@
  * Uses VITE_API_BASE_URL if specified in the environment, defaulting to http://127.0.0.1:8000
  */
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== 'undefined' && window.location.hostname
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
+  (typeof window !== 'undefined' && window.location?.hostname
     ? `http://${window.location.hostname}:8000`
     : 'http://127.0.0.1:8000');
 
@@ -45,4 +45,8 @@ export const API_ENDPOINTS = {
   ROAD_DETAIL: (id: string) => `${API_BASE_URL}/api/roads/${id}`,
   ANALYTICS: `${API_BASE_URL}/api/analytics`,
   SYNC_PHOTO: (sessionId: string) => `${API_BASE_URL}/api/issues/sync-photo/${sessionId}`,
+  VERIFICATION: `${API_BASE_URL}/api/verification`,
+  VERIFICATION_DETAIL: (id: string) => `${API_BASE_URL}/api/verification/${id}`,
+  VERIFICATION_REEVALUATE: (id: string) => `${API_BASE_URL}/api/verification/${id}/evaluate`,
+  VERIFICATION_OVERRIDE: (id: string) => `${API_BASE_URL}/api/verification/${id}/override`,
 };

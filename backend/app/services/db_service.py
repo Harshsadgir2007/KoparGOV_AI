@@ -20,6 +20,7 @@ from app.config import settings
 from app.models.civic_issue import CivicIssue
 from app.models.decision import CIEPipelineResponse
 from app.models.workflow import WorkflowRecord
+from app.models.verification import VerificationResult
 
 try:
     import firebase_admin
@@ -41,6 +42,7 @@ _GLOBAL_MOCK_DB: Dict[str, Dict[str, Any]] = {
     "notifications": {},
     "cie_results": {},
     "workflow": {},
+    "verification_results": {},
 }
 
 
@@ -403,4 +405,61 @@ class DatabaseService:
         else:
             doc = self.client.collection("users").document(uid).get()
             return doc.to_dict() if doc.exists else None
+
+    # --------------------------------------------------------------------------
+    # Civic Trust & Verification Results (Collection: 'verification_results')
+    # --------------------------------------------------------------------------
+
+    def save_verification_result(self, result: VerificationResult) -> str:
+        """Save or update a civic verification evaluation result in Firestore.
+        
+        Args:
+            result: VerificationResult instance.
+            
+        Returns:
+            The associated issue ID.
+        """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if not result.evaluated_at:
+            result.evaluated_at = now_iso
+
+        doc_data = result.model_dump()
+
+        if self._using_mock:
+            self._mock_db["verification_results"][result.issue_id] = doc_data
+        else:
+            self.client.collection("verification_results").document(result.issue_id).set(doc_data)
+
+        return result.issue_id
+
+    def get_verification_result(self, issue_id: str) -> Optional[VerificationResult]:
+        """Retrieve the verification result for a civic issue.
+        
+        Args:
+            issue_id: Unique civic issue identifier.
+            
+        Returns:
+            VerificationResult if found, None otherwise.
+        """
+        if self._using_mock:
+            data = self._mock_db["verification_results"].get(issue_id)
+            return VerificationResult(**data) if data else None
+        else:
+            doc = self.client.collection("verification_results").document(issue_id).get()
+            if doc.exists:
+                return VerificationResult(**doc.to_dict())
+            return None
+
+    def list_verification_results(self) -> List[VerificationResult]:
+        """List all stored verification evaluation results.
+        
+        Returns:
+            List of VerificationResult instances.
+        """
+        if self._using_mock:
+            return [VerificationResult(**data) for data in self._mock_db["verification_results"].values()]
+        else:
+            docs = self.client.collection("verification_results").stream()
+            return [VerificationResult(**doc.to_dict()) for doc in docs]
+
 

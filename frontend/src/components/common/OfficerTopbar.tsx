@@ -7,6 +7,7 @@ import { issueService } from '../../services/issueService';
 import { recommendationService } from '../../services/recommendationService';
 import { assignmentService } from '../../services/assignmentService';
 import { citizenService } from '../../services/citizenService';
+import { resilienceService } from '../../services/resilienceService';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 
 interface OfficerTopbarProps {
@@ -41,6 +42,11 @@ export const OfficerTopbar: React.FC<OfficerTopbarProps> = ({
     await recommendationService.resetDemo();
     await assignmentService.resetDemo();
     await citizenService.resetDemo();
+    try {
+      await resilienceService.resetDemo();
+    } catch (e) {
+      console.warn('Resilience reset skipped:', e);
+    }
     await refreshData();
     showToast('info', 'Demo State Reset', 'Restored ISS-1024 to PENDING state and refreshed all datasets.');
   };

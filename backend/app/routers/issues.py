@@ -12,15 +12,18 @@ from app.models.civic_issue import CivicIssue
 from app.models.decision import CIEPipelineResponse
 from app.models.resources import MunicipalResources
 from app.models.resilience import OperationType, OperationStatus
+from app.models.verification import VerificationResult
 from app.services.db_service import DatabaseService
 from app.services.pipeline import CIEPipelineService
 from app.services.resilience_service import get_resilience_service
+from app.services.verification_service import get_verification_service
 
 router = APIRouter(prefix="/api/issues", tags=["Issues"])
 
 db_service = DatabaseService()
 pipeline_service = CIEPipelineService()
 resilience_service = get_resilience_service()
+verification_service = get_verification_service()
 
 # In-memory cross-device temporary photo sync buffer
 _sync_photos: dict[str, str] = {}
@@ -40,6 +43,7 @@ class CreateIssueResponse(BaseModel):
     """Response model returned when a new citizen complaint is ingested."""
     issue: CivicIssue
     cie_result: Optional[CIEPipelineResponse] = None
+    verification_result: Optional[VerificationResult] = None
     status: str = "SUCCESS"
     operation_id: Optional[str] = None
     message: Optional[str] = None
@@ -120,10 +124,11 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
       Safely log to the resilience operation journal as PENDING_RECOVERY without performing unsafe primary writes.
     - If in NORMAL mode:
       1. Persist the issue to the database.
-      2. Run the deterministic CIE Pipeline (Validation -> MCDA -> Optimization -> Explanations).
-      3. Persist the evaluation result.
-      4. Log operations in the resilient journal.
-      5. Return the issue and CIE evaluation.
+      2. Run the deterministic Civic Trust & Verification Engine.
+      3. Run the deterministic CIE Pipeline (Validation -> MCDA -> Optimization -> Explanations).
+      4. Persist the evaluation results.
+      5. Log operations in the resilient journal.
+      6. Return the issue, verification result, and CIE evaluation.
     """
     try:
         # Extract pure CivicIssue
@@ -144,6 +149,7 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
             return CreateIssueResponse(
                 issue=issue,
                 cie_result=None,
+                verification_result=None,
                 status="PENDING_RECOVERY",
                 operation_id=op.operation_id,
                 message="Municipal primary store in DEGRADED resilience mode. Complaint safely queued in recovery operation journal.",
@@ -160,6 +166,18 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
             status=OperationStatus.COMMITTED,
         )
 
+        # Fetch current dataset to evaluate in context
+        all_stored_issues = db_service.list_issues()
+        if not any(i.id == issue.id for i in all_stored_issues):
+            all_stored_issues.append(issue)
+
+        # 3. Deterministic Civic Trust & Verification Layer
+        verification_result = verification_service.verify_issue(
+            issue=issue,
+            existing_issues=all_stored_issues,
+            persist=True,
+        )
+
         # Default municipal resources for immediate evaluation if not provided
         res = payload.resources or MunicipalResources(
             budget=340000.0,
@@ -168,11 +186,7 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
             time_capacity_hours=40.0,
         )
 
-        # Fetch current dataset to evaluate in context
-        all_stored_issues = db_service.list_issues()
-        if not any(i.id == issue.id for i in all_stored_issues):
-            all_stored_issues.append(issue)
-
+        # 4. CIE Pipeline execution
         cie_result = pipeline_service.run_pipeline(
             issues=all_stored_issues,
             resources=res,
@@ -190,15 +204,17 @@ async def create_issue(payload: CreateIssuePayload) -> CreateIssueResponse:
         return CreateIssueResponse(
             issue=issue,
             cie_result=cie_result,
+            verification_result=verification_result,
             status="SUCCESS",
             operation_id=op.operation_id,
-            message="Complaint successfully persisted and evaluated by CIE.",
+            message="Complaint successfully persisted, verified by Civic Trust Engine, and evaluated by CIE.",
         )
     except Exception as e:
         # If pipeline encounters an error, still return the persisted issue
         return CreateIssueResponse(
             issue=CivicIssue(**payload.model_dump(exclude={"resources"})),
             cie_result=None,
+            verification_result=None,
             status=f"SAVED_WITHOUT_PIPELINE: {str(e)}",
         )
 

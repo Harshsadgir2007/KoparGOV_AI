@@ -12,6 +12,7 @@ from .roads import router as roads_router
 from .auth import router as auth_router
 from .map import router as map_router
 from .notifications import router as notifications_router
+from .verification import router as verification_router
 
 __all__ = [
     "health_router",
@@ -26,4 +27,6 @@ __all__ = [
     "auth_router",
     "map_router",
     "notifications_router",
+    "verification_router",
 ]
+
