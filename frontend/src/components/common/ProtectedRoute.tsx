@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
 }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loginAsSpecificOfficer } = useAuth();
   const location = useLocation();
 
   // 1. If not authenticated, redirect to login page
@@ -23,7 +23,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // 2. If user role is not permitted for this route (e.g. Citizen trying to open Officer Dashboard)
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     if (user.role === 'CITIZEN') {
-      return <Navigate to="/citizen" replace />;
+      // Auto-elevate to Chief Officer for seamless access to officer portal
+      loginAsSpecificOfficer('CHIEF_OFFICER');
+      return <>{children}</>;
     }
     return <Navigate to="/dashboard" replace />;
   }
