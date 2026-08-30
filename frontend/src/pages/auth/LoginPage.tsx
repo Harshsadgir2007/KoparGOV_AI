@@ -8,7 +8,6 @@ import {
   User,
   ArrowRight,
   Sparkles,
-  CheckCircle2,
   Lock,
   UserCheck,
   FileCheck,
@@ -39,16 +38,17 @@ export const LoginPage: React.FC = () => {
   const [citizenMode, setCitizenMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
   // Officer Credentials Form
-  const [officerEmail, setOfficerEmail] = useState('officer@kopargaon.gov.in');
-  const [officerPassword, setOfficerPassword] = useState('DemoOfficer@2026');
+  const [officerEmail, setOfficerEmail] = useState('chief@kopargaon.demo');
+  const [officerPassword, setOfficerPassword] = useState('');
   const [isOfficerAuthenticating, setIsOfficerAuthenticating] = useState(false);
 
   // Citizen Form State
   const [citizenName, setCitizenName] = useState('');
   const [citizenPhone, setCitizenPhone] = useState('+91 98220 44112');
-  const [citizenEmail, setCitizenEmail] = useState('rahul.patil@example.com');
+  const [citizenEmail, setCitizenEmail] = useState('citizen@kopargaon.demo');
   const [citizenWard, setCitizenWard] = useState('Ward 5 - Shivaji Chowk');
-  const [citizenPassword, setCitizenPassword] = useState('pass123');
+  const [citizenPassword, setCitizenPassword] = useState('');
+  const [isCitizenAuthenticating, setIsCitizenAuthenticating] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -65,6 +65,10 @@ export const LoginPage: React.FC = () => {
     setErrorMessage(null);
     if (!officerEmail.trim()) {
       setErrorMessage('Please enter your official municipal email.');
+      return;
+    }
+    if (!officerPassword) {
+      setErrorMessage('Please enter your password.');
       return;
     }
 
@@ -88,12 +92,23 @@ export const LoginPage: React.FC = () => {
       setErrorMessage('Please enter a valid mobile number or email.');
       return;
     }
-    if (citizenEmail.includes('@')) {
-      await loginCitizenWithCredentials(citizenEmail, citizenPassword);
-    } else {
-      loginCitizen(citizenPhone);
+
+    setIsCitizenAuthenticating(true);
+    try {
+      if (citizenEmail.includes('@')) {
+        const result = await loginCitizenWithCredentials(citizenEmail, citizenPassword);
+        if (result.success) {
+          navigate('/citizen', { replace: true });
+        } else {
+          setErrorMessage(result.error || 'Citizen authentication failed.');
+        }
+      } else {
+        loginCitizen(citizenPhone);
+        navigate('/citizen', { replace: true });
+      }
+    } finally {
+      setIsCitizenAuthenticating(false);
     }
-    navigate('/citizen', { replace: true });
   };
 
   const handleCitizenRegisterSubmit = async (e: React.FormEvent) => {
@@ -103,8 +118,22 @@ export const LoginPage: React.FC = () => {
       setErrorMessage('Please fill in all mandatory fields.');
       return;
     }
-    await registerCitizen(citizenName, citizenPhone, citizenWard, citizenEmail);
-    navigate('/citizen', { replace: true });
+    if (citizenEmail && !citizenPassword) {
+      setErrorMessage('Please provide a password for your account.');
+      return;
+    }
+
+    setIsCitizenAuthenticating(true);
+    try {
+      const result = await registerCitizen(citizenName, citizenPhone, citizenWard, citizenEmail, citizenPassword);
+      if (result.success) {
+        navigate('/citizen', { replace: true });
+      } else {
+        setErrorMessage(result.error || 'Registration failed.');
+      }
+    } finally {
+      setIsCitizenAuthenticating(false);
+    }
   };
 
   return (
@@ -176,14 +205,51 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white">Pre-Provisioned Officer Login</h2>
-                  <p className="text-[11px] text-slate-400">Authenticated via Firebase & Firestore Registry</p>
+                  <p className="text-[11px] text-slate-400">Authenticated via Firebase & Municipal Registry</p>
+                </div>
+              </div>
+
+              {/* Quick-fill helpers for demo accounts */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Quick Fill Demo Account:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfficerEmail('chief@kopargaon.demo');
+                      setErrorMessage(null);
+                    }}
+                    className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg font-mono transition-colors cursor-pointer"
+                  >
+                    chief@kopargaon.demo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfficerEmail('sanitation@kopargaon.demo');
+                      setErrorMessage(null);
+                    }}
+                    className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg font-mono transition-colors cursor-pointer"
+                  >
+                    sanitation@kopargaon.demo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOfficerEmail('officer@kopargaon.demo');
+                      setErrorMessage(null);
+                    }}
+                    className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded-lg font-mono transition-colors cursor-pointer"
+                  >
+                    officer@kopargaon.demo
+                  </button>
                 </div>
               </div>
 
               <form onSubmit={handleOfficerCredentialSubmit} className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Official Government Email
+                    Official Municipal Email
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -191,7 +257,7 @@ export const LoginPage: React.FC = () => {
                       type="email"
                       value={officerEmail}
                       onChange={(e) => setOfficerEmail(e.target.value)}
-                      placeholder="officer@kopargaon.gov.in"
+                      placeholder="chief@kopargaon.demo"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                       required
                     />
@@ -200,7 +266,7 @@ export const LoginPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Officer Password / Security Key
+                    Officer Password
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -208,7 +274,7 @@ export const LoginPage: React.FC = () => {
                       type="password"
                       value={officerPassword}
                       onChange={(e) => setOfficerPassword(e.target.value)}
-                      placeholder="••••••••••••"
+                      placeholder="Enter Firebase Password"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                       required
                     />
@@ -223,12 +289,12 @@ export const LoginPage: React.FC = () => {
                   {isOfficerAuthenticating ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Verifying Officer Token...</span>
+                      <span>Verifying Firebase ID Token & Registry...</span>
                     </>
                   ) : (
                     <>
                       <KeyRound className="w-4 h-4" />
-                      <span>Authenticate Officer Session</span>
+                      <span>Sign In with Firebase Credentials</span>
                     </>
                   )}
                 </button>
@@ -239,7 +305,7 @@ export const LoginPage: React.FC = () => {
             <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-slate-800"></div>
               <span className="flex-shrink mx-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Or Select 1-Click Demo Officer Persona (Hackathon Jury Evaluation)
+                🧪 1-Click Simulation Shortcuts (Jury Testing)
               </span>
               <div className="flex-grow border-t border-slate-800"></div>
             </div>
@@ -249,21 +315,23 @@ export const LoginPage: React.FC = () => {
               {/* TIER 1: Ward In-Charge */}
               <div
                 onClick={() => handleOfficerPresetLogin('WARD_INCHARGE')}
-                className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/70 hover:bg-slate-850 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                className="group relative bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 cursor-pointer flex flex-col justify-between"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      Tier 1 • Field Assessment
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase">
+                      <UserCheck className="w-3 h-3" />
+                      <span>Step 1: Field Auth</span>
                     </span>
-                    <span className="text-[11px] font-mono text-slate-400">Ward 5</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-semibold">Ward 5</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
+                    <h3 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
                       {OFFICER_PRESETS.WARD_INCHARGE.name}
                     </h3>
-                    <p className="text-xs text-slate-400">
-                      {OFFICER_PRESETS.WARD_INCHARGE.designation}
+                    <p className="text-xs text-slate-400 font-medium">{OFFICER_PRESETS.WARD_INCHARGE.designation}</p>
+                    <p className="text-[11px] text-blue-400/80 font-mono mt-0.5">
+                      {OFFICER_PRESETS.WARD_INCHARGE.email}
                     </p>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -273,33 +341,37 @@ export const LoginPage: React.FC = () => {
 
                 <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                   <span className="text-[11px] text-slate-400">
-                    Sanction: <strong className="text-slate-300 font-mono">₹10,000</strong>
+                    Sanction: <strong className="text-blue-300 font-mono">Up to ₹10,000</strong>
                   </span>
-                  <span className="font-bold text-amber-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span className="font-bold text-blue-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                     <span>1-Click Sign In (Step 1)</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </div>
 
-              {/* TIER 2: Department Head */}
+              {/* TIER 2: Department Officer */}
               <div
                 onClick={() => handleOfficerPresetLogin('DEPARTMENT_OFFICER')}
-                className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/70 hover:bg-slate-850 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                className="group relative bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 cursor-pointer flex flex-col justify-between"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                      Tier 2 • Departmental Sanction
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                      <FileCheck className="w-3 h-3" />
+                      <span>Step 2: Tech Sanction</span>
                     </span>
-                    <span className="text-[11px] font-mono text-slate-400">Sanitation Dept</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-semibold">Sanitation Dept</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white group-hover:text-sky-300 transition-colors">
+                    <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors">
                       {OFFICER_PRESETS.DEPARTMENT_OFFICER.name}
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 font-medium">
                       {OFFICER_PRESETS.DEPARTMENT_OFFICER.designation}
+                    </p>
+                    <p className="text-[11px] text-emerald-400/80 font-mono mt-0.5">
+                      {OFFICER_PRESETS.DEPARTMENT_OFFICER.email}
                     </p>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -309,33 +381,35 @@ export const LoginPage: React.FC = () => {
 
                 <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                   <span className="text-[11px] text-slate-400">
-                    Sanction: <strong className="text-slate-300 font-mono">₹25,000</strong>
+                    Sanction: <strong className="text-emerald-300 font-mono">Up to ₹25,000</strong>
                   </span>
-                  <span className="font-bold text-sky-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span className="font-bold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                     <span>1-Click Sign In (Step 2)</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </div>
 
-              {/* TIER 3: Chief Municipal Officer (CMO) */}
+              {/* TIER 3: Chief Municipal Officer */}
               <div
                 onClick={() => handleOfficerPresetLogin('CHIEF_OFFICER')}
-                className="p-5 rounded-2xl bg-slate-900/90 border-2 border-emerald-500/60 hover:border-emerald-400 hover:bg-slate-850 transition-all cursor-pointer group shadow-md flex flex-col justify-between"
+                className="group relative bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 cursor-pointer flex flex-col justify-between"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Tier 3 • Chief Municipal Executive
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Step 3: Executive Head</span>
                     </span>
-                    <span className="text-[11px] font-mono text-emerald-400 font-bold">KMC Head</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-semibold">City-Wide</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
                       {OFFICER_PRESETS.CHIEF_OFFICER.name}
                     </h3>
-                    <p className="text-xs text-slate-400">
-                      {OFFICER_PRESETS.CHIEF_OFFICER.designation}
+                    <p className="text-xs text-slate-400 font-medium">{OFFICER_PRESETS.CHIEF_OFFICER.designation}</p>
+                    <p className="text-[11px] text-amber-400/80 font-mono mt-0.5">
+                      {OFFICER_PRESETS.CHIEF_OFFICER.email}
                     </p>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -345,33 +419,37 @@ export const LoginPage: React.FC = () => {
 
                 <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                   <span className="text-[11px] text-slate-400">
-                    Sanction: <strong className="text-emerald-300 font-mono">Full Municipal Authority</strong>
+                    Sanction: <strong className="text-amber-300 font-mono">Discretionary Ceiling</strong>
                   </span>
-                  <span className="font-bold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span className="font-bold text-amber-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                     <span>1-Click Sign In (Step 3)</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </div>
 
-              {/* TIER 4: Tahsildar / Revenue Magistrate */}
+              {/* TIER 4: Tahsildar / SDM */}
               <div
                 onClick={() => handleOfficerPresetLogin('TAHSILDAR_OR_RELEVANT_AUTHORITY')}
-                className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-purple-500/70 hover:bg-slate-850 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+                className="group relative bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-2xl p-4 sm:p-5 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 cursor-pointer flex flex-col justify-between"
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                      Tier 4 • Taluka Magistrate
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase">
+                      <Layers className="w-3 h-3" />
+                      <span>Step 4: Taluka Magistrate</span>
                     </span>
-                    <span className="text-[11px] font-mono text-slate-400">Revenue Dept</span>
+                    <span className="text-[11px] font-mono text-slate-400 font-semibold">Taluka Revenue</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white group-hover:text-purple-300 transition-colors">
+                    <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors">
                       {OFFICER_PRESETS.TAHSILDAR_OR_RELEVANT_AUTHORITY.name}
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 font-medium">
                       {OFFICER_PRESETS.TAHSILDAR_OR_RELEVANT_AUTHORITY.designation}
+                    </p>
+                    <p className="text-[11px] text-purple-400/80 font-mono mt-0.5">
+                      {OFFICER_PRESETS.TAHSILDAR_OR_RELEVANT_AUTHORITY.email}
                     </p>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
@@ -428,27 +506,45 @@ export const LoginPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Quick-fill helper for demo citizen */}
+            {citizenMode === 'LOGIN' && (
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Quick Fill Demo Citizen:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCitizenEmail('citizen@kopargaon.demo');
+                    setErrorMessage(null);
+                  }}
+                  className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded-lg font-mono transition-colors cursor-pointer"
+                >
+                  citizen@kopargaon.demo
+                </button>
+              </div>
+            )}
+
             {citizenMode === 'LOGIN' ? (
               <form onSubmit={handleCitizenLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Mobile Number / Registered Email
+                    Registered Email or Phone
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
                       type="text"
-                      value={citizenPhone}
-                      onChange={(e) => setCitizenPhone(e.target.value)}
-                      placeholder="+91 98220 44112"
+                      value={citizenEmail}
+                      onChange={(e) => setCitizenEmail(e.target.value)}
+                      placeholder="citizen@kopargaon.demo or +91 98220 44112"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      required
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Password / OTP
+                    Password
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -456,7 +552,7 @@ export const LoginPage: React.FC = () => {
                       type="password"
                       value={citizenPassword}
                       onChange={(e) => setCitizenPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Enter Firebase Password"
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                     />
                   </div>
@@ -464,10 +560,20 @@ export const LoginPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg shadow-sky-600/30"
+                  disabled={isCitizenAuthenticating}
+                  className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg shadow-sky-600/30 disabled:opacity-50"
                 >
-                  <LogIn className="w-4 h-4" />
-                  <span>Access Citizen Services</span>
+                  {isCitizenAuthenticating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Signing In with Firebase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      <span>Access Citizen Services</span>
+                    </>
+                  )}
                 </button>
               </form>
             ) : (
@@ -508,6 +614,40 @@ export const LoginPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Email Address *
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="email"
+                      value={citizenEmail}
+                      onChange={(e) => setCitizenEmail(e.target.value)}
+                      placeholder="citizen@example.com"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Password *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="password"
+                      value={citizenPassword}
+                      onChange={(e) => setCitizenPassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Kopargaon Ward Location *
                   </label>
                   <div className="relative">
@@ -528,10 +668,20 @@ export const LoginPage: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg shadow-emerald-600/30"
+                  disabled={isCitizenAuthenticating}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg shadow-emerald-600/30 disabled:opacity-50"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Register Citizen Account</span>
+                  {isCitizenAuthenticating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Creating Account in Firebase...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Register Citizen Account</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}

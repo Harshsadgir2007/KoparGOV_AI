@@ -1,15 +1,15 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+﻿import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage, ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSySyntheticDemoApiKeyForHackathon_12345',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'kopargov-ai-demo.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kopargov-ai-demo',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'kopargov-ai-demo.appspot.com',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '100200300400',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:100200300400:web:abcdef1234567890',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kopargov-ai',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 };
 
 let app: FirebaseApp | null = null;
@@ -19,23 +19,32 @@ let storage: FirebaseStorage | null = null;
 let isFirebaseConfigured = false;
 
 try {
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
+  const isRealApiKey =
+    Boolean(firebaseConfig.apiKey) &&
+    !firebaseConfig.apiKey.includes('SyntheticDemoApiKey') &&
+    !firebaseConfig.apiKey.includes('<REAL_');
+
+  if (isRealApiKey && firebaseConfig.projectId) {
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApps()[0];
+    }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    isFirebaseConfigured = true;
   } else {
-    app = getApps()[0];
+    console.info('[Firebase] Client SDK waiting for real credentials in frontend/.env.local');
   }
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  isFirebaseConfigured = !firebaseConfig.apiKey.includes('SyntheticDemoApiKey');
 } catch (error) {
-  console.warn('Firebase client SDK initialization in local fallback mode:', error);
+  console.warn('[Firebase] Client SDK initialization note:', error);
 }
 
 export { app, auth, db, storage, isFirebaseConfigured };
 
 /**
- * Upload a complaint or resolution photo to Firebase Storage with base64 offline fallback.
+ * Upload a complaint or resolution photo to Firebase Storage with base64 fallback.
  */
 export async function uploadEvidencePhoto(
   fileOrBase64: File | string,
@@ -59,11 +68,11 @@ export async function uploadEvidencePhoto(
       }
       return await getDownloadURL(storageRef);
     } catch (storageErr) {
-      console.warn('Firebase Storage upload failed, falling back to local data URL:', storageErr);
+      console.warn('[Firebase Storage] Upload failed, falling back to data URL:', storageErr);
     }
   }
 
-  // Fallback to data URL or mock URL
+  // Fallback to data URL
   if (typeof fileOrBase64 === 'string') {
     return fileOrBase64;
   }

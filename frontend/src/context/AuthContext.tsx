@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db, isFirebaseConfigured } from '../config/firebase';
 import { UserRole, UserSession, AuthorityRole } from '../types';
 
 export interface OfficerPreset {
@@ -32,7 +35,7 @@ export const OFFICER_PRESETS: Record<AuthorityRole, OfficerPreset> = {
     ward_number: 5,
     description: 'Initial on-site assessment and local field verification (Step 1).',
     sanction_limit: 'Up to ₹10,000 / Routine containment',
-    email: 'sunil.jadhav@kopargaon.gov.in',
+    email: 'officer@kopargaon.demo',
   },
   DEPARTMENT_OFFICER: {
     id: 'DEPARTMENT_OFFICER',
@@ -42,7 +45,7 @@ export const OFFICER_PRESETS: Record<AuthorityRole, OfficerPreset> = {
     department: 'Sanitation & Solid Waste Management Dept.',
     description: 'Technical sanction & departmental unit deployment review (Step 2).',
     sanction_limit: 'Up to ₹25,000 / Departmental budget',
-    email: 'sunita.more@kopargaon.gov.in',
+    email: 'sanitation@kopargaon.demo',
   },
   CHIEF_OFFICER: {
     id: 'CHIEF_OFFICER',
@@ -52,7 +55,7 @@ export const OFFICER_PRESETS: Record<AuthorityRole, OfficerPreset> = {
     department: 'Kopargaon Municipal Council (KMC)',
     description: 'Executive authorization for high-budget, critical fleet mobilisation (Step 3).',
     sanction_limit: 'Full Municipal Discretionary Ceiling',
-    email: 'rajesh.kulkarni@kopargaon.gov.in',
+    email: 'chief@kopargaon.demo',
   },
   TAHSILDAR_OR_RELEVANT_AUTHORITY: {
     id: 'TAHSILDAR_OR_RELEVANT_AUTHORITY',
@@ -70,7 +73,7 @@ const INITIAL_CITIZENS: CitizenAccount[] = [
   {
     name: 'Rahul Patil',
     phone: '+91 98220 44112',
-    email: 'rahul.patil@example.com',
+    email: 'citizen@kopargaon.demo',
     ward: 'Ward 5 - Shivaji Chowk',
     ward_number: 5,
     registered_at: '2026-08-01T10:00:00Z',
@@ -85,17 +88,14 @@ const INITIAL_CITIZENS: CitizenAccount[] = [
   },
 ];
 
-const DEFAULT_OFFICER: UserSession = {
-  role: 'OFFICER',
-  name: OFFICER_PRESETS.CHIEF_OFFICER.name,
-  designation: OFFICER_PRESETS.CHIEF_OFFICER.designation,
-  department: OFFICER_PRESETS.CHIEF_OFFICER.department,
-  officer_role: 'CHIEF_OFFICER',
+const UNAUTHENTICATED_USER: UserSession = {
+  role: 'CITIZEN',
+  name: 'Unauthenticated User',
 };
 
-const AUTH_STORAGE_KEY = 'kopargov_auth_session_v3';
-const CITIZENS_STORAGE_KEY = 'kopargov_registered_citizens_v2';
-const TOKEN_STORAGE_KEY = 'kopargov_auth_token_v3';
+const AUTH_STORAGE_KEY = 'kopargov_auth_session_v4';
+const CITIZENS_STORAGE_KEY = 'kopargov_registered_citizens_v3';
+const TOKEN_STORAGE_KEY = 'kopargov_auth_token_v4';
 
 interface AuthResult {
   success: boolean;
@@ -112,17 +112,42 @@ interface AuthContextType {
   loginOfficerWithCredentials: (email: string, password?: string) => Promise<AuthResult>;
   loginCitizen: (phone: string, name?: string) => boolean;
   loginCitizenWithCredentials: (email: string, password?: string) => Promise<AuthResult>;
-  registerCitizen: (name: string, phone: string, ward: string, email?: string) => Promise<AuthResult>;
-  logout: () => void;
+  registerCitizen: (name: string, phone: string, ward: string, email?: string, password?: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
   switchRole: () => void;
   getAuthHeaders: () => Record<string, string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function formatFirebaseAuthError(error: any): string {
+  if (!error) return 'Authentication failed. Please try again.';
+  const code = error.code || '';
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Invalid email or password. Please verify your credentials.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/user-disabled':
+      return 'This user account has been disabled by the municipal administrator.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email address already exists. Please sign in.';
+    case 'auth/weak-password':
+      return 'Password should be at least 6 characters.';
+    case 'auth/too-many-requests':
+      return 'Too many failed login attempts. Please wait a few moments and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your internet connection.';
+    default:
+      return error.message || 'Authentication failed. Please try again.';
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_STORAGE_KEY) || 'mock-token-UID-AUTH-OFFICER-001';
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
   });
 
   const [user, setUser] = useState<UserSession>(() => {
@@ -131,31 +156,116 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         return JSON.parse(saved);
       } catch (e) {
-        console.error(e);
+        console.error('Error parsing stored user session:', e);
       }
     }
-    return DEFAULT_OFFICER;
+    return UNAUTHENTICATED_USER;
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('kopargov_is_authenticated') !== 'false';
+    return localStorage.getItem('kopargov_is_authenticated') === 'true' && Boolean(localStorage.getItem(TOKEN_STORAGE_KEY));
   });
 
   const isOfficer = user.role === 'OFFICER';
 
+  // Synchronize active session to localStorage
   useEffect(() => {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-    localStorage.setItem('kopargov_is_authenticated', isAuthenticated ? 'true' : 'false');
-    if (token) {
+    if (isAuthenticated && token) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      localStorage.setItem('kopargov_is_authenticated', 'true');
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.setItem('kopargov_is_authenticated', 'false');
       localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
   }, [user, isAuthenticated, token]);
 
+  // Firebase Auth State Listener as Source of Truth
+  useEffect(() => {
+    if (!auth || !isFirebaseConfigured) return;
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser.getIdToken();
+          setToken(idToken);
+
+          // Verify with Backend /api/auth/me
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+          const res = await fetch(`${apiUrl}/api/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+            },
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.is_officer) {
+              const officerData = data.officer || {};
+              setUser({
+                role: 'OFFICER',
+                name: officerData.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Municipal Officer',
+                designation: officerData.designation || 'Municipal Officer',
+                department: officerData.department || 'Municipal Administration',
+                officer_role: (officerData.role as AuthorityRole) || (officerData.id as AuthorityRole) || 'CHIEF_OFFICER',
+                ward_number: officerData.ward_number,
+              });
+              setIsAuthenticated(true);
+              return;
+            }
+          }
+
+          // Check if citizen in Firestore users collection
+          if (db) {
+            try {
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
+              const userDocSnap = await getDoc(userDocRef);
+              if (userDocSnap.exists()) {
+                const citizenData = userDocSnap.data();
+                setUser({
+                  role: 'CITIZEN',
+                  name: citizenData.name || firebaseUser.displayName || 'Registered Citizen',
+                  phone: citizenData.phone || '',
+                  ward_number: citizenData.ward_number || 5,
+                });
+                setIsAuthenticated(true);
+                return;
+              }
+            } catch (fsErr) {
+              console.warn('[Firestore] Profile lookup error:', fsErr);
+            }
+          }
+
+          // Fallback citizen state if authenticated via Firebase
+          setUser({
+            role: 'CITIZEN',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Registered Citizen',
+            phone: firebaseUser.phoneNumber || '',
+            ward_number: 5,
+          });
+          setIsAuthenticated(true);
+        } catch (err) {
+          console.error('[Firebase Auth] Session verification error:', err);
+        }
+      } else {
+        // If Firebase says not logged in and session was not a demo persona
+        const currentToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (currentToken && !currentToken.startsWith('demo-preset-')) {
+          setIsAuthenticated(false);
+          setToken(null);
+          setUser(UNAUTHENTICATED_USER);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Demo Persona 1-Click Simulation Login (Testing only)
   const loginAsSpecificOfficer = (roleType: AuthorityRole) => {
     const preset = OFFICER_PRESETS[roleType] || OFFICER_PRESETS.CHIEF_OFFICER;
-    const sessionToken = `mock-token-UID-AUTH-OFFICER-${roleType}`;
+    const sessionToken = `demo-preset-OFFICER-${roleType}`;
     setToken(sessionToken);
     setUser({
       role: 'OFFICER',
@@ -174,7 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     roleType: AuthorityRole = 'CHIEF_OFFICER'
   ) => {
     const preset = OFFICER_PRESETS[roleType] || OFFICER_PRESETS.CHIEF_OFFICER;
-    const sessionToken = `mock-token-UID-AUTH-OFFICER-001`;
+    const sessionToken = `demo-preset-OFFICER-001`;
     setToken(sessionToken);
     setUser({
       role: 'OFFICER',
@@ -187,29 +297,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(true);
   };
 
+  // Real Credential Login for Municipal Officers
   const loginOfficerWithCredentials = async (email: string, password = ''): Promise<AuthResult> => {
     try {
-      let resolvedToken = `mock-token-${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-      // 1. If Firebase Client is configured, attempt real Firebase Sign-in
-      try {
-        const { auth, isFirebaseConfigured } = await import('../config/firebase');
-        if (auth && isFirebaseConfigured) {
-          const { signInWithEmailAndPassword } = await import('firebase/auth');
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          resolvedToken = await userCredential.user.getIdToken();
-        }
-      } catch (fbErr: any) {
-        console.warn('Direct Firebase Auth sign-in failed or fallback in use:', fbErr.message);
+      if (!isFirebaseConfigured || !auth) {
+        return {
+          success: false,
+          error: 'Firebase is not yet configured with real project credentials in frontend/.env.local.',
+        };
       }
 
-      // 2. Call backend /api/auth/me with Bearer token to verify officer registry status
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      // 1. Authenticate with Firebase Authentication
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const idToken = await userCredential.user.getIdToken();
+
+      // 2. Call FastAPI backend /api/auth/me with Bearer token for strict Officer Registry authorization
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
       const res = await fetch(`${apiUrl}/api/auth/me`, {
         headers: {
-          Authorization: `Bearer ${resolvedToken}`,
-          'X-Officer-Role': 'CHIEF_OFFICER',
-          'X-Officer-Id': email,
+          Authorization: `Bearer ${idToken}`,
         },
       });
 
@@ -217,38 +323,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const errJson = await res.json().catch(() => ({}));
         return {
           success: false,
-          error: errJson.detail || 'Authentication failed. Please verify credentials.',
+          error: errJson.detail || 'Officer authorization check failed. Please verify with municipal IT.',
         };
       }
 
       const data = await res.json();
       if (data && data.is_officer) {
         const officerData = data.officer || {};
-        setToken(resolvedToken);
+        setToken(idToken);
         setUser({
           role: 'OFFICER',
-          name: officerData.name || 'Municipal Officer',
+          name: officerData.name || userCredential.user.displayName || email.split('@')[0],
           designation: officerData.designation || 'Municipal Officer',
           department: officerData.department || 'Municipal Administration',
-          officer_role: 'CHIEF_OFFICER',
+          officer_role: (officerData.role as AuthorityRole) || (officerData.id as AuthorityRole) || 'CHIEF_OFFICER',
+          ward_number: officerData.ward_number,
         });
         setIsAuthenticated(true);
         return { success: true };
       } else {
-        // Authenticated as citizen or non-officer
         return {
           success: false,
-          error: 'You are not authorized as a municipal officer. Officer accounts must be pre-provisioned by municipal IT.',
+          error: 'Access Denied: This account is authenticated but not registered as an authorized municipal officer.',
         };
       }
-    } catch (err: any) {
+    } catch (fbErr: any) {
+      console.error('[Firebase Auth] Officer login failed:', fbErr);
       return {
         success: false,
-        error: err.message || 'Authentication network error.',
+        error: formatFirebaseAuthError(fbErr),
       };
     }
   };
 
+  // Citizen Local / Phone Login
   const loginCitizen = (phone: string, fallbackName = 'Rahul Patil'): boolean => {
     let citizens: CitizenAccount[] = INITIAL_CITIZENS;
     try {
@@ -261,7 +369,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanPhone = phone.trim();
     const found = citizens.find(c => c.phone === cleanPhone || c.phone.includes(cleanPhone.slice(-10)));
 
-    const citizenToken = `citizen-token-${cleanPhone.replace(/[^0-9]/g, '') || '9822044112'}`;
+    const citizenToken = `demo-citizen-${cleanPhone.replace(/[^0-9]/g, '') || '9822044112'}`;
     setToken(citizenToken);
 
     if (found) {
@@ -283,6 +391,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
+  // Real Credential Login for Citizens
   const loginCitizenWithCredentials = async (emailOrPhone: string, password = ''): Promise<AuthResult> => {
     const isEmail = emailOrPhone.includes('@');
     if (!isEmail) {
@@ -290,76 +399,148 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    let citizenToken = `citizen-token-${emailOrPhone.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    try {
-      const { auth, isFirebaseConfigured } = await import('../config/firebase');
-      if (auth && isFirebaseConfigured) {
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
-        const userCredential = await signInWithEmailAndPassword(auth, emailOrPhone, password);
-        citizenToken = await userCredential.user.getIdToken();
-      }
-    } catch (fbErr: any) {
-      console.warn('Firebase citizen sign-in fallback:', fbErr.message);
+    if (!isFirebaseConfigured || !auth) {
+      return {
+        success: false,
+        error: 'Firebase is not yet configured with real project credentials in frontend/.env.local.',
+      };
     }
 
-    setToken(citizenToken);
-    setUser({
-      role: 'CITIZEN',
-      name: emailOrPhone.split('@')[0] || 'Registered Citizen',
-      phone: '+91 98220 44112',
-      ward_number: 5,
-    });
-    setIsAuthenticated(true);
-    return { success: true };
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, emailOrPhone.trim(), password);
+      const idToken = await userCredential.user.getIdToken();
+
+      let citizenName = userCredential.user.displayName || emailOrPhone.split('@')[0];
+      let citizenPhone = '';
+      let wardNumber = 5;
+
+      // Lookup profile in Firestore
+      if (db) {
+        try {
+          const userDocRef = doc(db, 'users', userCredential.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            citizenName = data.name || citizenName;
+            citizenPhone = data.phone || citizenPhone;
+            wardNumber = data.ward_number || wardNumber;
+          }
+        } catch (fsErr) {
+          console.warn('[Firestore] Error reading citizen document:', fsErr);
+        }
+      }
+
+      setToken(idToken);
+      setUser({
+        role: 'CITIZEN',
+        name: citizenName,
+        phone: citizenPhone || '+91 98220 44112',
+        ward_number: wardNumber,
+      });
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (fbErr: any) {
+      console.error('[Firebase Auth] Citizen login failed:', fbErr);
+      return {
+        success: false,
+        error: formatFirebaseAuthError(fbErr),
+      };
+    }
   };
 
+  // Citizen Registration with Firebase Auth & Firestore Profile
   const registerCitizen = async (
     name: string,
     phone: string,
     ward: string,
-    email?: string
+    email?: string,
+    password?: string
   ): Promise<AuthResult> => {
-    let citizens: CitizenAccount[] = INITIAL_CITIZENS;
     try {
-      const stored = localStorage.getItem(CITIZENS_STORAGE_KEY);
-      if (stored) citizens = JSON.parse(stored);
-    } catch (e) {
-      console.error(e);
+      const wardNum = parseInt(ward.replace(/\D/g, ''), 10) || 5;
+
+      if (email && password && isFirebaseConfigured && auth && db) {
+        // 1. Create Firebase Authentication Account
+        const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const idToken = await userCredential.user.getIdToken();
+
+        // 2. Create Citizen Document in Firestore users collection
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+        await setDoc(userDocRef, {
+          uid: userCredential.user.uid,
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          role: 'CITIZEN',
+          ward: ward.trim(),
+          ward_number: wardNum,
+          registered_at: new Date().toISOString(),
+        });
+
+        setToken(idToken);
+        setUser({
+          role: 'CITIZEN',
+          name: name.trim(),
+          phone: phone.trim(),
+          ward_number: wardNum,
+        });
+        setIsAuthenticated(true);
+        return { success: true };
+      }
+
+      // Offline / Local Registration Fallback
+      let citizens: CitizenAccount[] = INITIAL_CITIZENS;
+      try {
+        const stored = localStorage.getItem(CITIZENS_STORAGE_KEY);
+        if (stored) citizens = JSON.parse(stored);
+      } catch (e) {
+        console.error(e);
+      }
+
+      const newCitizen: CitizenAccount = {
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email?.trim(),
+        ward: ward.trim(),
+        ward_number: wardNum,
+        registered_at: new Date().toISOString(),
+      };
+
+      citizens.push(newCitizen);
+      localStorage.setItem(CITIZENS_STORAGE_KEY, JSON.stringify(citizens));
+
+      const citizenToken = `demo-citizen-${newCitizen.phone.replace(/[^0-9]/g, '')}`;
+      setToken(citizenToken);
+
+      setUser({
+        role: 'CITIZEN',
+        name: newCitizen.name,
+        phone: newCitizen.phone,
+        ward_number: newCitizen.ward_number,
+      });
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (fbErr: any) {
+      console.error('[Firebase Auth] Citizen registration error:', fbErr);
+      return {
+        success: false,
+        error: formatFirebaseAuthError(fbErr),
+      };
     }
-
-    const wardNum = parseInt(ward.replace(/\D/g, ''), 10) || 5;
-    const newCitizen: CitizenAccount = {
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email?.trim(),
-      ward: ward.trim(),
-      ward_number: wardNum,
-      registered_at: new Date().toISOString(),
-    };
-
-    citizens.push(newCitizen);
-    localStorage.setItem(CITIZENS_STORAGE_KEY, JSON.stringify(citizens));
-
-    const citizenToken = `citizen-token-${newCitizen.phone.replace(/[^0-9]/g, '')}`;
-    setToken(citizenToken);
-
-    setUser({
-      role: 'CITIZEN',
-      name: newCitizen.name,
-      phone: newCitizen.phone,
-      ward_number: newCitizen.ward_number,
-    });
-    setIsAuthenticated(true);
-    return { success: true };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (auth && isFirebaseConfigured) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Firebase signOut error:', e);
+      }
+    }
     setIsAuthenticated(false);
     setToken(null);
-    setUser({
-      role: 'CITIZEN',
-      name: 'Unauthenticated User',
-    });
+    setUser(UNAUTHENTICATED_USER);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.setItem('kopargov_is_authenticated', 'false');
     localStorage.removeItem(TOKEN_STORAGE_KEY);
   };
